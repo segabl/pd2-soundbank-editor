@@ -11,7 +11,6 @@ namespace PD2SoundBankEditor {
 		public uint dataOffset;
 		public uint dataLength;
 		public byte[] data;
-		public byte[] unknownData;
 
 		public string errorString;
 		public string replacementFile;
@@ -95,8 +94,8 @@ namespace PD2SoundBankEditor {
 				Trace.WriteLine($"Reading data for {desc.id}...");
 				desc.data = reader.ReadBytes((int)desc.dataLength);
 				var nextOffset = i < streamDescriptions.Count - 1 ? streamDescriptions[i + 1].dataOffset : dataChunkLen;
-				var unknownDataAmount = nextOffset - desc.dataOffset - desc.dataLength;
-				desc.unknownData = reader.ReadBytes((int)unknownDataAmount);
+				var paddingAmount = nextOffset - desc.dataOffset - desc.dataLength;
+				reader.ReadBytes((int)paddingAmount);
 			}
 
 			// Unknown
