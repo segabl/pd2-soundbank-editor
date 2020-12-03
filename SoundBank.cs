@@ -70,6 +70,9 @@ namespace PD2SoundBankEditor {
 			// Stream list
 			listMagicNum = reader.ReadUInt32();
 			listChunkLen = reader.ReadUInt32();
+			if (listChunkLen % 12 != 0) {
+				throw new FileFormatException("Stream list chunk length is not a multiple of 12.");
+			}
 			Trace.WriteLine($"List {listMagicNum} {listChunkLen}");
 			wemFiles = new List<WemFile>();
 			for (var i = 0; i < listChunkLen; i += 12) {
