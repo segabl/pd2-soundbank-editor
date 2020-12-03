@@ -22,6 +22,7 @@ namespace PD2SoundBankEditor {
 		private int extractErrors;
 		private Button playingButton;
 		private MediaPlayer mediaPlayer = new MediaPlayer();
+		private bool suppressErrors = false;
 
 		public MainWindow() {
 			InitializeComponent();
@@ -77,14 +78,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void ExtractWemFiles(IEnumerable<WemFile> wemFiles) {
-			mainGrid.IsEnabled = false;
-			BackgroundWorker worker = new BackgroundWorker {
-				WorkerReportsProgress = true
-			};
-			worker.DoWork += ExtractWemFilesAsync;
-			worker.ProgressChanged += OnExtractWemFilesProgress;
-			worker.RunWorkerCompleted += OnExtractWemFilesCompleted;
-			worker.RunWorkerAsync(wemFiles);
+			
 		}
 
 		private void ExtractWemFilesAsync(object sender, DoWorkEventArgs e) {
@@ -118,6 +112,9 @@ namespace PD2SoundBankEditor {
 
 		void OnExtractWemFilesProgress(object sender, ProgressChangedEventArgs e) {
 			progressBar.Value = e.ProgressPercentage;
+			if (suppressErrors) {
+				return;
+			}
 			var errorString = (string)e.UserState;
 			if (errorString != null && errorString != "") {
 				AdonisUI.Controls.MessageBox.Show(errorString, "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
@@ -126,7 +123,7 @@ namespace PD2SoundBankEditor {
 
 		void OnExtractWemFilesCompleted(object sender, RunWorkerCompletedEventArgs e) {
 			if (extractErrors > 0) {
-				AdonisUI.Controls.MessageBox.Show($"Extraction completed with {extractErrors} error(s)!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+				AdonisUI.Controls.MessageBox.Show($"Extraction finished with {extractErrors} error(s)!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
 			} else {
 				AdonisUI.Controls.MessageBox.Show("Extraction complete!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
 			}
@@ -135,7 +132,16 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
-			ExtractWemFiles(((Button)sender) == extractAllButton ? soundBank.GetWemFiles() : listView.SelectedItems.Cast<WemFile>());
+			var extractAll = ((Button)sender) == extractAllButton;
+			suppressErrors = extractAll;
+			mainGrid.IsEnabled = false;
+			BackgroundWorker worker = new BackgroundWorker {
+				WorkerReportsProgress = true
+			};
+			worker.DoWork += ExtractWemFilesAsync;
+			worker.ProgressChanged += OnExtractWemFilesProgress;
+			worker.RunWorkerCompleted += OnExtractWemFilesCompleted;
+			worker.RunWorkerAsync(extractAll ? soundBank.GetWemFiles() : listView.SelectedItems.Cast<WemFile>());
 		}
 
 		private void OnSaveButtonClick(object sender, RoutedEventArgs e) {
