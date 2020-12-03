@@ -92,6 +92,7 @@ namespace PD2SoundBankEditor {
 			foreach (var desc in listView.SelectedItems.Cast<StreamDescription>()) {
 				desc.data = data;
 				desc.replacementFile = fileNameNoExt + ".wav";
+				desc.convertedFilePath = null;
 			}
 			listView.Items.Refresh();
 			AdonisUI.Controls.MessageBox.Show($"Files replaced!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
