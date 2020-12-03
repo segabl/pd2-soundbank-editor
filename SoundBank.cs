@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 
 // see https://bobdoleowndu.github.io/mgsv/documentation/soundswapping.html
 
@@ -43,40 +44,42 @@ namespace PD2SoundBankEditor {
 
 		private string filePath;
 
-		private uint headerMagicNum;
+		private string headerString;
 		private uint headerChunkLen;
 		private byte[] headerData;
 
-		private uint listMagicNum;
-		private uint listChunkLen;
+		private string didxString;
+		private uint didxChunkLen;
 
 		private List<StreamDescription> streamDescriptions;
 
-		private uint dataMagicNum;
+		private string dataString;
 		private uint dataChunkLen;
 
-		private byte[] unknownData;
+		private List<KeyValuePair<string, byte[]>> otherData = new List<KeyValuePair<string, byte[]>>();
 
 		public SoundBank(string file) {
 			filePath = file;
 
 			using var reader = new BinaryReader(new FileStream(file, FileMode.Open));
 
-			// Main header data
-			headerMagicNum = reader.ReadUInt32();
+			// BKHD header
+			headerString = Encoding.UTF8.GetString(reader.ReadBytes(4));
 			headerChunkLen = reader.ReadUInt32();
-			Trace.WriteLine($"Header {headerMagicNum} {headerChunkLen}");
+			Trace.WriteLine($"{headerString} {headerChunkLen}");
+			// BKHD data
 			headerData = reader.ReadBytes((int)headerChunkLen);
 
-			// Stream list
-			listMagicNum = reader.ReadUInt32();
-			listChunkLen = reader.ReadUInt32();
-			if (listChunkLen % 12 != 0) {
-				throw new FileFormatException("Stream list chunk length is not a multiple of 12.");
+			// DIDX header
+			didxString = Encoding.UTF8.GetString(reader.ReadBytes(4));
+			if (didxString != "DIDX") {
+				throw new FileFormatException($"Unsupported soundbank type with header \"{didxString}\".");
 			}
-			Trace.WriteLine($"List {listMagicNum} {listChunkLen}");
+			didxChunkLen = reader.ReadUInt32();
+			Trace.WriteLine($"{didxString} {didxChunkLen}");
+			// DIDX data
 			streamDescriptions = new List<StreamDescription>();
-			for (var i = 0; i < listChunkLen; i += 12) {
+			for (var i = 0; i < didxChunkLen; i += 12) {
 				var desc = new StreamDescription {
 					id = reader.ReadUInt32(),
 					dataOffset = reader.ReadUInt32(),
@@ -85,10 +88,11 @@ namespace PD2SoundBankEditor {
 				streamDescriptions.Add(desc);
 			}
 
-			// Stream data
-			dataMagicNum = reader.ReadUInt32();
+			// DATA header
+			dataString = Encoding.UTF8.GetString(reader.ReadBytes(4));
 			dataChunkLen = reader.ReadUInt32();
-			Trace.WriteLine($"Data {dataMagicNum} {dataChunkLen}");
+			Trace.WriteLine($"{dataString} {dataChunkLen}");
+			// DATA data
 			for (var i = 0; i < streamDescriptions.Count; i++) {
 				var desc = streamDescriptions[i];
 				Trace.WriteLine($"Reading data for {desc.id}...");
@@ -98,32 +102,29 @@ namespace PD2SoundBankEditor {
 				reader.ReadBytes((int)paddingAmount);
 			}
 
-			// Unknown
-			var num = 0;
-			var buffer = new byte[128];
-			var data = new List<byte>();
-			while ((num = reader.Read(buffer, 0, buffer.Length)) > 0) {
-				if (num == buffer.Length) {
-					data.AddRange(buffer);
-				} else {
-					for (var i = 0; i < num; i++) {
-						data.Add(buffer[i]);
-					}
+			// All other remaining data
+			while (true) {
+				var otherString = Encoding.UTF8.GetString(reader.ReadBytes(4));
+				if (otherString == "") {
+					return;
 				}
+				var otherChunkLen = reader.ReadUInt32();
+				Trace.WriteLine($"{otherString} {otherChunkLen}");
+				otherData.Add(new KeyValuePair<string, byte[]>(otherString, reader.ReadBytes((int)otherChunkLen)));
 			}
-			unknownData = data.ToArray();
-			Trace.WriteLine($"{unknownData.Length} bytes of unknown data left");
 		}
 
 		public void Save(string file) {
 
 			using var writer = new BinaryWriter(new FileStream(file, FileMode.Create));
 
-			writer.Write(headerMagicNum);
+			// BKHD data
+			writer.Write(Encoding.UTF8.GetBytes(headerString));
 			writer.Write(headerChunkLen);
 			writer.Write(headerData);
 
-			writer.Write(listMagicNum);
+			// DIDX data
+			writer.Write(Encoding.UTF8.GetBytes(didxString));
 			writer.Write(streamDescriptions.Count * 12); // listChunkLen
 			var totalDataSize = 0;
 			foreach (var desc in streamDescriptions) {
@@ -137,7 +138,8 @@ namespace PD2SoundBankEditor {
 				totalDataSize += desc.data.Length;
 			}
 
-			writer.Write(dataMagicNum);
+			// DATA data
+			writer.Write(Encoding.UTF8.GetBytes(dataString));
 			writer.Write(totalDataSize); // dataChunkLen
 			var bytesWritten = 0;
 			foreach (var desc in streamDescriptions) {
@@ -150,7 +152,12 @@ namespace PD2SoundBankEditor {
 				bytesWritten += desc.data.Length;
 			}
 
-			writer.Write(unknownData);
+			// All other remaining data
+			foreach (var pair in otherData) {
+				writer.Write(Encoding.UTF8.GetBytes(pair.Key));
+				writer.Write(pair.Value.Length);
+				writer.Write(pair.Value);
+			}
 		}
 
 		public string GetFilePath() {
