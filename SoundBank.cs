@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
+// see https://bobdoleowndu.github.io/mgsv/documentation/soundswapping.html
+
 namespace PD2SoundBankEditor {
-	public class WemFile {
+	public class StreamDescription {
 		public uint id;
 		public uint dataOffset;
 		public uint dataLength;
@@ -49,7 +51,7 @@ namespace PD2SoundBankEditor {
 		private uint listMagicNum;
 		private uint listChunkLen;
 
-		private List<WemFile> wemFiles;
+		private List<StreamDescription> streamDescriptions;
 
 		private uint dataMagicNum;
 		private uint dataChunkLen;
@@ -74,27 +76,27 @@ namespace PD2SoundBankEditor {
 				throw new FileFormatException("Stream list chunk length is not a multiple of 12.");
 			}
 			Trace.WriteLine($"List {listMagicNum} {listChunkLen}");
-			wemFiles = new List<WemFile>();
+			streamDescriptions = new List<StreamDescription>();
 			for (var i = 0; i < listChunkLen; i += 12) {
-				var wem = new WemFile {
+				var desc = new StreamDescription {
 					id = reader.ReadUInt32(),
 					dataOffset = reader.ReadUInt32(),
 					dataLength = reader.ReadUInt32()
 				};
-				wemFiles.Add(wem);
+				streamDescriptions.Add(desc);
 			}
 
 			// Stream data
 			dataMagicNum = reader.ReadUInt32();
 			dataChunkLen = reader.ReadUInt32();
 			Trace.WriteLine($"Data {dataMagicNum} {dataChunkLen}");
-			for (var i = 0; i < wemFiles.Count; i++) {
-				var wem = wemFiles[i];
-				Trace.WriteLine($"Reading data for {wem.id}...");
-				wem.data = reader.ReadBytes((int)wem.dataLength);
-				var nextOffset = i < wemFiles.Count - 1 ? wemFiles[i + 1].dataOffset : dataChunkLen;
-				var unknownDataAmount = nextOffset - wem.dataOffset - wem.dataLength;
-				wem.unknownData = reader.ReadBytes((int)unknownDataAmount);
+			for (var i = 0; i < streamDescriptions.Count; i++) {
+				var desc = streamDescriptions[i];
+				Trace.WriteLine($"Reading data for {desc.id}...");
+				desc.data = reader.ReadBytes((int)desc.dataLength);
+				var nextOffset = i < streamDescriptions.Count - 1 ? streamDescriptions[i + 1].dataOffset : dataChunkLen;
+				var unknownDataAmount = nextOffset - desc.dataOffset - desc.dataLength;
+				desc.unknownData = reader.ReadBytes((int)unknownDataAmount);
 			}
 
 			// Unknown
@@ -123,20 +125,30 @@ namespace PD2SoundBankEditor {
 			writer.Write(headerData);
 
 			writer.Write(listMagicNum);
-			writer.Write(wemFiles.Count * 12); // listChunkLen
+			writer.Write(streamDescriptions.Count * 12); // listChunkLen
 			var totalDataSize = 0;
-			foreach (var wem in wemFiles) {
-				writer.Write(wem.id);
+			foreach (var desc in streamDescriptions) {
+				var align = 16 - (totalDataSize % 16); // pad to nearest 16
+				if (align < 16) {
+					totalDataSize += align;
+				}
+				writer.Write(desc.id);
 				writer.Write(totalDataSize); // wem.dataOffset
-				writer.Write(wem.data.Length); // wem.dataLength
-				totalDataSize += wem.data.Length + wem.unknownData.Length;
+				writer.Write(desc.data.Length); // wem.dataLength
+				totalDataSize += desc.data.Length;
 			}
 
 			writer.Write(dataMagicNum);
 			writer.Write(totalDataSize); // dataChunkLen
-			foreach (var wem in wemFiles) {
-				writer.Write(wem.data);
-				writer.Write(wem.unknownData);
+			var bytesWritten = 0;
+			foreach (var desc in streamDescriptions) {
+				var align = 16 - (bytesWritten % 16);  // pad to nearest 16
+				if (align < 16) {
+					writer.Write(new byte[align]);
+					bytesWritten += align;
+				}
+				writer.Write(desc.data);
+				bytesWritten += desc.data.Length;
 			}
 
 			writer.Write(unknownData);
@@ -146,8 +158,8 @@ namespace PD2SoundBankEditor {
 			return filePath;
 		}
 
-		public List<WemFile> GetWemFiles() {
-			return wemFiles;
+		public List<StreamDescription> GetWemFiles() {
+			return streamDescriptions;
 		}
 	}
 }
