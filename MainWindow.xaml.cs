@@ -29,13 +29,19 @@ namespace PD2SoundBankEditor {
 			if (!File.Exists(CONVERTER_PATH)) {
 				AdonisUI.Controls.MessageBox.Show($"The sound converter could not be found! Please place {CONVERTER_NAME} in the directory of this application!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
 			}
-			mediaPlayer.MediaEnded += ChangePlayButton;
+			mediaPlayer.MediaEnded += SetPlayButtonState;
 			if (!Directory.Exists(TEMP_DIR)) {
 				Directory.CreateDirectory(TEMP_DIR);
 			}
 		}
 
-		private void OnImportButtonClick(object sender, RoutedEventArgs e) {
+		private void OnWindowClosed(object sender, EventArgs e) {
+			if (Directory.Exists(TEMP_DIR)) {
+				Directory.Delete(TEMP_DIR, true);
+			}
+		}
+
+		private void OnOpenButtonClick(object sender, RoutedEventArgs e) {
 			var diag = new OpenFileDialog {
 				Filter = "Soundbanks (*.bnk)|*.bnk"
 			};
@@ -53,6 +59,88 @@ namespace PD2SoundBankEditor {
 			listView.DataContext = listView.ItemsSource;
 			extractAllButton.IsEnabled = true;
 			saveButton.IsEnabled = true;
+		}
+
+		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
+			var extractAll = ((Button)sender) == extractAllButton;
+			suppressErrors = extractAll;
+			mainGrid.IsEnabled = false;
+			BackgroundWorker worker = new BackgroundWorker {
+				WorkerReportsProgress = true
+			};
+			worker.DoWork += ExtractStreams;
+			worker.ProgressChanged += OnExtractStreamsProgress;
+			worker.RunWorkerCompleted += OnExtractStreamsFinished;
+			worker.RunWorkerAsync(extractAll ? soundBank.GetWemFiles() : listView.SelectedItems.Cast<StreamDescription>());
+		}
+
+		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
+			var diag = new OpenFileDialog {
+				Filter = "Wave audio files (*.wav)|*.wav"
+			};
+			if (diag.ShowDialog() != true) {
+				return;
+			}
+			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
+			var fileName = Path.Combine(TEMP_DIR, fileNameNoExt + ".stream");
+			var errorString = StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
+			if (errorString != "") {
+				AdonisUI.Controls.MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
+				return;
+			}
+			var data = File.ReadAllBytes(fileName);
+			foreach (var desc in listView.SelectedItems.Cast<StreamDescription>()) {
+				desc.data = data;
+				desc.replacementFile = fileNameNoExt + ".wav";
+			}
+			listView.Items.Refresh();
+			AdonisUI.Controls.MessageBox.Show($"Files replaced!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
+		}
+
+		private void OnSaveButtonClick(object sender, RoutedEventArgs e) {
+			var diag = new SaveFileDialog {
+				Filter = "Soundbanks (*.bnk)|*.bnk",
+				FileName = Path.GetFileName(soundBank.GetFilePath()),
+				AddExtension = true
+			};
+			if (diag.ShowDialog() != true) {
+				return;
+			}
+			soundBank.Save(diag.FileName);
+			AdonisUI.Controls.MessageBox.Show("Soundbank saved!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
+		}
+
+		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
+			var button = (Button)sender;
+			var desc = (StreamDescription)button.DataContext;
+
+			var sameButton = playingButton == button;
+
+			SetPlayButtonState(null, null);
+
+			if (sameButton) {
+				return;
+			}
+
+			if (desc.convertedFilePath == null) {
+				var fileName = Path.Combine(TEMP_DIR, $"{desc.id}.stream");
+				var convertedFileName = Path.ChangeExtension(fileName, "wav");
+				string errorString;
+				if (!desc.Save(fileName)) {
+					errorString = desc.errorString;
+				} else {
+					errorString = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
+				}
+				File.Delete(fileName);
+				if (errorString != "") {
+					AdonisUI.Controls.MessageBox.Show($"Can't play file:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
+					return;
+				}
+				desc.convertedFilePath = convertedFileName;
+			}
+			mediaPlayer.Open(new Uri(desc.convertedFilePath));
+			mediaPlayer.Play();
+			SetPlayButtonState(button, null);
 		}
 
 		private void OnListViewSelectionChanged(object sender, SelectionChangedEventArgs e) {
@@ -77,12 +165,8 @@ namespace PD2SoundBankEditor {
 			return output;
 		}
 
-		private void ExtractWemFiles(IEnumerable<WemFile> wemFiles) {
-			
-		}
-
-		private void ExtractWemFilesAsync(object sender, DoWorkEventArgs e) {
-			var wemFiles = (IEnumerable<WemFile>)e.Argument;
+		private void ExtractStreams(object sender, DoWorkEventArgs e) {
+			var streamDescriptions = (IEnumerable<StreamDescription>)e.Argument;
 			var soundBankName = soundBank.GetFilePath();
 			var savePath = Path.Join(Path.GetDirectoryName(soundBankName), Path.GetFileNameWithoutExtension(soundBankName));
 			if (!Directory.Exists(savePath)) {
@@ -91,26 +175,26 @@ namespace PD2SoundBankEditor {
 			var converterAvailable = File.Exists(CONVERTER_PATH);
 			var n = 0;
 			extractErrors = 0;
-			foreach (var wem in wemFiles) {
+			foreach (var desc in streamDescriptions) {
 				var errorStr = "";
-				var fileName = Path.Join(savePath, wem.id.ToString() + ".stream");
+				var fileName = Path.Join(savePath, desc.id.ToString() + ".stream");
 				var convertedFileName = Path.ChangeExtension(fileName, "wav");
-				if (!wem.Save(fileName)) {
-					errorStr = wem.errorString;
+				if (!desc.Save(fileName)) {
+					errorStr = desc.errorString;
 				} else if (converterAvailable) {
 					errorStr = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
 				}
 				if (errorStr != "") {
-					errorStr = $"There was an error processing the stream {wem.id}:\n{errorStr}";
+					errorStr = $"There was an error processing the stream {desc.id}:\n{errorStr}";
 					extractErrors++;
 				} else {
-					wem.convertedFilePath = convertedFileName;
+					desc.convertedFilePath = convertedFileName;
 				}
-				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)wemFiles.Count() * 100), errorStr);
+				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100), errorStr);
 			}
 		}
 
-		void OnExtractWemFilesProgress(object sender, ProgressChangedEventArgs e) {
+		void OnExtractStreamsProgress(object sender, ProgressChangedEventArgs e) {
 			progressBar.Value = e.ProgressPercentage;
 			if (suppressErrors) {
 				return;
@@ -121,7 +205,7 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		void OnExtractWemFilesCompleted(object sender, RunWorkerCompletedEventArgs e) {
+		void OnExtractStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
 			if (extractErrors > 0) {
 				AdonisUI.Controls.MessageBox.Show($"Extraction finished with {extractErrors} error(s)!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
 			} else {
@@ -131,101 +215,16 @@ namespace PD2SoundBankEditor {
 			mainGrid.IsEnabled = true;
 		}
 
-		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
-			var extractAll = ((Button)sender) == extractAllButton;
-			suppressErrors = extractAll;
-			mainGrid.IsEnabled = false;
-			BackgroundWorker worker = new BackgroundWorker {
-				WorkerReportsProgress = true
-			};
-			worker.DoWork += ExtractWemFilesAsync;
-			worker.ProgressChanged += OnExtractWemFilesProgress;
-			worker.RunWorkerCompleted += OnExtractWemFilesCompleted;
-			worker.RunWorkerAsync(extractAll ? soundBank.GetWemFiles() : listView.SelectedItems.Cast<WemFile>());
-		}
-
-		private void OnSaveButtonClick(object sender, RoutedEventArgs e) {
-			var diag = new SaveFileDialog {
-				Filter = "Soundbanks (*.bnk)|*.bnk",
-				AddExtension = true
-			};
-			if (diag.ShowDialog() != true) {
-				return;
-			}
-			soundBank.Save(diag.FileName);
-			AdonisUI.Controls.MessageBox.Show("Soundbank saved!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
-		}
-
-		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
-			var diag = new OpenFileDialog {
-				Filter = "Wave audio files (*.wav)|*.wav"
-			};
-			if (diag.ShowDialog() != true) {
-				return;
-			}
-			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
-			var fileName = Path.Combine(TEMP_DIR, fileNameNoExt + ".stream");
-			var errorString = StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
-			if (errorString != "") {
-				AdonisUI.Controls.MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
-				return;
-			}
-			var data = File.ReadAllBytes(fileName);
-			foreach (var wem in listView.SelectedItems.Cast<WemFile>()) {
-				wem.data = data;
-				wem.replacementFile = fileNameNoExt + ".wav";
-			}
-			listView.Items.Refresh();
-			AdonisUI.Controls.MessageBox.Show($"Files replaced!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
-		}
-
-		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
-			var button = (Button)sender;
-			var wem = (WemFile)button.DataContext;
-
-			Trace.WriteLine($"{wem.id} clicked");
-
-			var sameButton = playingButton == button;
-
-			mediaPlayer.Stop();
-			ChangePlayButton(sender, e);
-
-			if (sameButton) {
-				return;
-			}
-
-			if (wem.convertedFilePath == null) {
-				var fileName = Path.Combine(TEMP_DIR, $"{wem.id}.stream");
-				var convertedFileName = Path.ChangeExtension(fileName, "wav");
-				string errorString;
-				if (!wem.Save(fileName)) {
-					errorString = wem.errorString;
-				} else {
-					errorString = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
+		private void SetPlayButtonState(object sender, EventArgs e) {
+			if (sender == mediaPlayer || sender == null) {
+				mediaPlayer.Stop();
+				if (playingButton != null) {
+					playingButton.Content = "▶";
 				}
-				File.Delete(fileName);
-				if (errorString != "") {
-					AdonisUI.Controls.MessageBox.Show($"Can't play file:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
-					return;
-				}
-				wem.convertedFilePath = convertedFileName;
-			}
-			mediaPlayer.Open(new Uri(wem.convertedFilePath));
-			mediaPlayer.Play();
-			button.Content = "■";
-			playingButton = button;
-		}
-
-		private void ChangePlayButton(object sender, EventArgs e) {
-			if (playingButton != null) {
-				playingButton.Content = "▶";
-			}
-			playingButton = null;
-		}
-
-		private void OnWindowClosed(object sender, EventArgs e) {
-			if (Directory.Exists(TEMP_DIR)) {
-				Directory.Delete(TEMP_DIR, true);
+				playingButton = null;
+			} else {
+				playingButton = (Button)sender;
+				playingButton.Content = "■";
 			}
 		}
 	}
