@@ -15,8 +15,8 @@ namespace PD2SoundBankEditor {
 	/// </summary>
 	public partial class MainWindow : AdonisUI.Controls.AdonisWindow {
 		static readonly string CONVERTER_NAME = "wwise_ima_adpcm.exe";
-		static readonly string CONVERTER_PATH = System.IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
-		static readonly string TEMP_DIR = System.IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
+		static readonly string CONVERTER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
+		static readonly string TEMP_DIR = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
 
 		private SoundBank soundBank;
 		private int extractErrors;
@@ -41,8 +41,13 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
+			try {
+				soundBank = new SoundBank(diag.FileName);
+			} catch (Exception ex) {
+				AdonisUI.Controls.MessageBox.Show($"There was an error trying to read the soundbank:\n{ex.Message}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
+				return;
+			}
 			importTextBox.Text = diag.FileName;
-			soundBank = new SoundBank(diag.FileName);
 			listView.ItemsSource = soundBank.GetWemFiles();
 			listView.DataContext = listView.ItemsSource;
 			extractAllButton.IsEnabled = true;
@@ -85,7 +90,7 @@ namespace PD2SoundBankEditor {
 		private void ExtractWemFilesAsync(object sender, DoWorkEventArgs e) {
 			var wemFiles = (IEnumerable<WemFile>)e.Argument;
 			var soundBankName = soundBank.GetFilePath();
-			var savePath = System.IO.Path.Join(System.IO.Path.GetDirectoryName(soundBankName), System.IO.Path.GetFileNameWithoutExtension(soundBankName));
+			var savePath = Path.Join(Path.GetDirectoryName(soundBankName), Path.GetFileNameWithoutExtension(soundBankName));
 			if (!Directory.Exists(savePath)) {
 				Directory.CreateDirectory(savePath);
 			}
@@ -94,15 +99,15 @@ namespace PD2SoundBankEditor {
 			extractErrors = 0;
 			foreach (var wem in wemFiles) {
 				var errorStr = "";
-				var fileName = System.IO.Path.Join(savePath, wem.id.ToString() + ".stream");
-				var convertedFileName = System.IO.Path.ChangeExtension(fileName, "wav");
+				var fileName = Path.Join(savePath, wem.id.ToString() + ".stream");
+				var convertedFileName = Path.ChangeExtension(fileName, "wav");
 				if (!wem.Save(fileName)) {
 					errorStr = wem.errorString;
 				} else if (converterAvailable) {
 					errorStr = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
 				}
 				if (errorStr != "") {
-					errorStr = $"Something went wrong while processing {wem.id}:\n{errorStr}";
+					errorStr = $"There was an error processing the stream {wem.id}:\n{errorStr}";
 					extractErrors++;
 				} else {
 					wem.convertedFilePath = convertedFileName;
@@ -152,8 +157,8 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
-			var fileNameNoExt = System.IO.Path.GetFileNameWithoutExtension(diag.FileName);
-			var fileName = System.IO.Path.Combine(TEMP_DIR, fileNameNoExt + ".stream");
+			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
+			var fileName = Path.Combine(TEMP_DIR, fileNameNoExt + ".stream");
 			var errorString = StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
 			if (errorString != "") {
 				AdonisUI.Controls.MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
@@ -184,8 +189,8 @@ namespace PD2SoundBankEditor {
 			}
 
 			if (wem.convertedFilePath == null) {
-				var fileName = System.IO.Path.Combine(TEMP_DIR, $"{wem.id}.stream");
-				var convertedFileName = System.IO.Path.ChangeExtension(fileName, "wav");
+				var fileName = Path.Combine(TEMP_DIR, $"{wem.id}.stream");
+				var convertedFileName = Path.ChangeExtension(fileName, "wav");
 				string errorString;
 				if (!wem.Save(fileName)) {
 					errorString = wem.errorString;
