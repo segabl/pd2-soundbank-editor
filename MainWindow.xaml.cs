@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 
 namespace PD2SoundBankEditor {
@@ -54,11 +55,16 @@ namespace PD2SoundBankEditor {
 				AdonisUI.Controls.MessageBox.Show($"There was an error trying to read the soundbank:\n{ex.Message}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
 				return;
 			}
+			var containsEmedded = soundBank.StreamInfos.Count > 0;
 			importTextBox.Text = diag.FileName;
-			listView.ItemsSource = soundBank.GetWemFiles();
-			listView.DataContext = listView.ItemsSource;
-			extractAllButton.IsEnabled = true;
-			saveButton.IsEnabled = true;
+			listView.ItemsSource = soundBank.StreamInfos;
+			listView.DataContext = soundBank.StreamInfos;
+			extractAllButton.IsEnabled = containsEmedded;
+			saveButton.IsEnabled = containsEmedded;
+
+			if (!containsEmedded) {
+				AdonisUI.Controls.MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+			}
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
@@ -71,7 +77,7 @@ namespace PD2SoundBankEditor {
 			worker.DoWork += ExtractStreams;
 			worker.ProgressChanged += OnExtractStreamsProgress;
 			worker.RunWorkerCompleted += OnExtractStreamsFinished;
-			worker.RunWorkerAsync(extractAll ? soundBank.GetWemFiles() : listView.SelectedItems.Cast<StreamDescription>());
+			worker.RunWorkerAsync(extractAll ? soundBank.StreamInfos : listView.SelectedItems.Cast<StreamInfo>());
 		}
 
 		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
@@ -89,10 +95,10 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 			var data = File.ReadAllBytes(fileName);
-			foreach (var desc in listView.SelectedItems.Cast<StreamDescription>()) {
-				desc.data = data;
-				desc.replacementFile = fileNameNoExt + ".wav";
-				desc.convertedFilePath = null;
+			foreach (var info in listView.SelectedItems.Cast<StreamInfo>()) {
+				info.data = data;
+				info.replacementFile = fileNameNoExt + ".wav";
+				info.convertedFilePath = null;
 			}
 			listView.Items.Refresh();
 			AdonisUI.Controls.MessageBox.Show($"Files replaced!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
@@ -101,7 +107,7 @@ namespace PD2SoundBankEditor {
 		private void OnSaveButtonClick(object sender, RoutedEventArgs e) {
 			var diag = new SaveFileDialog {
 				Filter = "Soundbanks (*.bnk)|*.bnk",
-				FileName = Path.GetFileName(soundBank.GetFilePath()),
+				FileName = Path.GetFileName(soundBank.FilePath),
 				AddExtension = true
 			};
 			if (diag.ShowDialog() != true) {
@@ -113,7 +119,7 @@ namespace PD2SoundBankEditor {
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
 			var button = (Button)sender;
-			var desc = (StreamDescription)button.DataContext;
+			var info = (StreamInfo)button.DataContext;
 
 			var sameButton = playingButton == button;
 
@@ -123,12 +129,12 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 
-			if (desc.convertedFilePath == null) {
-				var fileName = Path.Combine(TEMP_DIR, $"{desc.id}.stream");
+			if (info.convertedFilePath == null) {
+				var fileName = Path.Combine(TEMP_DIR, $"{info.id}.stream");
 				var convertedFileName = Path.ChangeExtension(fileName, "wav");
 				string errorString;
-				if (!desc.Save(fileName)) {
-					errorString = desc.errorString;
+				if (!info.Save(fileName)) {
+					errorString = info.errorString;
 				} else {
 					errorString = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
 				}
@@ -137,9 +143,9 @@ namespace PD2SoundBankEditor {
 					AdonisUI.Controls.MessageBox.Show($"Can't play file:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
 					return;
 				}
-				desc.convertedFilePath = convertedFileName;
+				info.convertedFilePath = convertedFileName;
 			}
-			mediaPlayer.Open(new Uri(desc.convertedFilePath));
+			mediaPlayer.Open(new Uri(info.convertedFilePath));
 			mediaPlayer.Play();
 			SetPlayButtonState(button, null);
 		}
@@ -147,6 +153,21 @@ namespace PD2SoundBankEditor {
 		private void OnListViewSelectionChanged(object sender, SelectionChangedEventArgs e) {
 			replaceSelectedButton.IsEnabled = listView.SelectedItems.Count > 0;
 			extractSelectedButton.IsEnabled = listView.SelectedItems.Count > 0;
+			if (listView.SelectedItems.Count > 0) {
+				var info = (StreamInfo)listView.SelectedItem;
+				Trace.WriteLine($"{info.id} clicked");
+			}
+		}
+
+		private void OnListViewSizeChanged(object sender, SizeChangedEventArgs e) {
+			ListView listView = sender as ListView;
+			GridView gridView = listView.View as GridView;
+
+			gridView.Columns[0].Width = 40;
+			var workingWidth = Math.Max(0, listView.ActualWidth - SystemParameters.VerticalScrollBarWidth * 2 - gridView.Columns[0].Width - 16);
+			for (var i = 1; i < gridView.Columns.Count; i++) {
+				gridView.Columns[i].Width = workingWidth / (gridView.Columns.Count - 1);
+			}
 		}
 
 		private string StartConverterProcess(string args) {
@@ -167,8 +188,8 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void ExtractStreams(object sender, DoWorkEventArgs e) {
-			var streamDescriptions = (IEnumerable<StreamDescription>)e.Argument;
-			var soundBankName = soundBank.GetFilePath();
+			var streamDescriptions = (IEnumerable<StreamInfo>)e.Argument;
+			var soundBankName = soundBank.FilePath;
 			var savePath = Path.Join(Path.GetDirectoryName(soundBankName), Path.GetFileNameWithoutExtension(soundBankName));
 			if (!Directory.Exists(savePath)) {
 				Directory.CreateDirectory(savePath);
@@ -176,20 +197,20 @@ namespace PD2SoundBankEditor {
 			var converterAvailable = File.Exists(CONVERTER_PATH);
 			var n = 0;
 			extractErrors = 0;
-			foreach (var desc in streamDescriptions) {
+			foreach (var info in streamDescriptions) {
 				var errorStr = "";
-				var fileName = Path.Join(savePath, desc.id.ToString() + ".stream");
+				var fileName = Path.Join(savePath, info.id.ToString() + ".stream");
 				var convertedFileName = Path.ChangeExtension(fileName, "wav");
-				if (!desc.Save(fileName)) {
-					errorStr = desc.errorString;
+				if (!info.Save(fileName)) {
+					errorStr = info.errorString;
 				} else if (converterAvailable) {
 					errorStr = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
 				}
 				if (errorStr != "") {
-					errorStr = $"There was an error processing the stream {desc.id}:\n{errorStr}";
+					errorStr = $"There was an error processing the stream {info.id}:\n{errorStr}";
 					extractErrors++;
 				} else {
-					desc.convertedFilePath = convertedFileName;
+					info.convertedFilePath = convertedFileName;
 				}
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100), errorStr);
 			}

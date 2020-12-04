@@ -8,17 +8,16 @@ using System.Text;
 // http://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
 
 namespace PD2SoundBankEditor {
-	public class StreamDescription {
+	public class StreamInfo {
 		public uint id;
-		public uint dataOffset;
-		public uint dataLength;
 		public byte[] data;
 
 		public string errorString;
 		public string replacementFile;
 		public string convertedFilePath;
 
-		public string Name { get => id.ToString(); }
+		public uint Id { get => id; }
+		public double Size { get => Math.Round((data.Length / 1024f) * 10f) / 10f; }
 		public string ReplacementFile { get => replacementFile; }
 
 		public override string ToString() {
@@ -43,58 +42,41 @@ namespace PD2SoundBankEditor {
 
 	public class SoundBank {
 
-		private string filePath;
+		public string FilePath { get; private set; }
+		public List<StreamInfo> StreamInfos { get; private set; } = new List<StreamInfo>();
 
 		private List<KeyValuePair<string, byte[]>> sectionData = new List<KeyValuePair<string, byte[]>>();
 
-		private List<StreamDescription> streamDescriptions;
-
 		public SoundBank(string file) {
-			filePath = file;
-
-			using var reader = new BinaryReader(new FileStream(file, FileMode.Open));
+			FilePath = file;
 
 			// Read all headers and their data
+			using var reader = new BinaryReader(new FileStream(file, FileMode.Open));
 			while (true) {
 				var sectionString = Encoding.UTF8.GetString(reader.ReadBytes(4));
 				if (sectionString == "") {
 					break;
 				}
 				var sectionLength = reader.ReadUInt32();
-				Trace.WriteLine($"{sectionString} {sectionLength}");
+				Trace.WriteLine($"{sectionString}: {sectionLength} bytes");
 				sectionData.Add(new KeyValuePair<string, byte[]>(sectionString, reader.ReadBytes((int)sectionLength)));
 			}
 
 			var didxIndex = sectionData.FindIndex(x => x.Key == "DIDX");
 			var dataIndex = sectionData.FindIndex(x => x.Key == "DATA");
-
 			if (didxIndex < 0 || dataIndex < 0) {
-				throw new FileFormatException($"Unsupported soundbank type, missing DIDX/DATA headers.");
+				return;
 			}
 
-			// Get the DIDX data
+			// Get the embedded stream data
 			var didxData = sectionData[didxIndex].Value;
-			using var didxReader = new BinaryReader(new MemoryStream(didxData));
-			streamDescriptions = new List<StreamDescription>();
-			for (var i = 0; i < didxData.Length; i += 12) {
-				var desc = new StreamDescription {
-					id = didxReader.ReadUInt32(),
-					dataOffset = didxReader.ReadUInt32(),
-					dataLength = didxReader.ReadUInt32()
-				};
-				streamDescriptions.Add(desc);
-			}
-
-			// Get the DATA data
 			var dataData = sectionData[dataIndex].Value;
-			using var dataReader = new BinaryReader(new MemoryStream(dataData));
-			for (var i = 0; i < streamDescriptions.Count; i++) {
-				var desc = streamDescriptions[i];
-				Trace.WriteLine($"Reading data for {desc.id}...");
-				desc.data = dataReader.ReadBytes((int)desc.dataLength);
-				var nextOffset = i < streamDescriptions.Count - 1 ? streamDescriptions[i + 1].dataOffset : (uint)dataData.Length;
-				var paddingAmount = nextOffset - desc.dataOffset - desc.dataLength;
-				dataReader.ReadBytes((int)paddingAmount);
+			using var didxReader = new BinaryReader(new MemoryStream(didxData));
+			for (var i = 0; i < didxData.Length; i += 12) {
+				StreamInfos.Add(new StreamInfo {
+					id = didxReader.ReadUInt32(),
+					data = dataData.Skip((int)didxReader.ReadUInt32()).Take((int)didxReader.ReadUInt32()).ToArray()
+				});
 			}
 		}
 
@@ -104,20 +86,20 @@ namespace PD2SoundBankEditor {
 			using var didxWriter = new BinaryWriter(new MemoryStream());
 			using var dataWriter = new BinaryWriter(new MemoryStream());
 			var totalDataSize = 0;
-			foreach (var desc in streamDescriptions) {
+			foreach (var info in StreamInfos) {
 				var align = 16 - (totalDataSize % 16); // pad to nearest 16
 				if (align < 16) {
 					dataWriter.Write(new byte[align]);
 					totalDataSize += align;
 				}
 
-				didxWriter.Write(desc.id);
+				didxWriter.Write(info.id);
 				didxWriter.Write(totalDataSize);
-				didxWriter.Write(desc.data.Length);
+				didxWriter.Write(info.data.Length);
 
-				dataWriter.Write(desc.data);
+				dataWriter.Write(info.data);
 
-				totalDataSize += desc.data.Length;
+				totalDataSize += info.data.Length;
 			}
 			sectionData[sectionData.FindIndex(x => x.Key == "DIDX")] = new KeyValuePair<string, byte[]>("DIDX", ((MemoryStream)didxWriter.BaseStream).ToArray());
 			sectionData[sectionData.FindIndex(x => x.Key == "DATA")] = new KeyValuePair<string, byte[]>("DATA", ((MemoryStream)dataWriter.BaseStream).ToArray());
@@ -129,14 +111,6 @@ namespace PD2SoundBankEditor {
 				writer.Write(pair.Value.Length);
 				writer.Write(pair.Value);
 			}
-		}
-
-		public string GetFilePath() {
-			return filePath;
-		}
-
-		public List<StreamDescription> GetWemFiles() {
-			return streamDescriptions;
 		}
 	}
 }
