@@ -28,7 +28,6 @@
 
             <TextBox Name="importTextBox" TextWrapping="NoWrap" Grid.Column="0" Grid.Row="0" IsEnabled="False"/>
             <Button Name="openButton" Content="Open soundbank..." Click="OnOpenButtonClick" Grid.Column="2" Grid.Row="0" />
-
             <ListView Name="listView" Grid.Column="0" Grid.Row="2" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" SelectionChanged="OnListViewSelectionChanged" SizeChanged="OnListViewSizeChanged">
                 <ListView.Resources>
                     <Style TargetType="{x:Type GridViewColumnHeader}" BasedOn="{StaticResource {x:Type GridViewColumnHeader}}">
@@ -72,12 +71,6 @@
                 <Button Grid.Row="2" Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
                 <Button Grid.Row="4" Name="saveButton" Content="Save soundbank..." Click="OnSaveButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
             </Grid>
-            <!--<StackPanel Grid.Column="2" Grid.Row="2" VerticalAlignment="Top" Height="Auto">                
-                <Button Name="extractAllButton" Content="Extract all" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
-                <Button Name="extractSelectedButton" Content="Extract selected" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
-                <Button Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
-                <Button Name="saveButton" Content="Save soundbank..." Click="OnSaveButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
-            </StackPanel>-->
         </Grid>
         <ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>
     </Grid>
