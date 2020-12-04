@@ -178,6 +178,7 @@ namespace PD2SoundBankEditor {
 			var convertProcess = new Process();
 			convertProcess.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 			convertProcess.StartInfo.UseShellExecute = false;
+			convertProcess.StartInfo.CreateNoWindow = true;
 			convertProcess.StartInfo.RedirectStandardOutput = true;
 			convertProcess.StartInfo.FileName = CONVERTER_PATH;
 			convertProcess.StartInfo.Arguments = args;
