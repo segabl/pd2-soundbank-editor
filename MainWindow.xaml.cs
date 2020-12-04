@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Media;
 
 namespace PD2SoundBankEditor {
@@ -23,7 +22,6 @@ namespace PD2SoundBankEditor {
 		private int extractErrors;
 		private Button playingButton;
 		private MediaPlayer mediaPlayer = new MediaPlayer();
-		private bool suppressErrors = false;
 
 		public MainWindow() {
 			InitializeComponent();
@@ -55,29 +53,12 @@ namespace PD2SoundBankEditor {
 				AdonisUI.Controls.MessageBox.Show($"There was an error trying to read the soundbank:\n{ex.Message}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
 				return;
 			}
-			var containsEmedded = soundBank.StreamInfos.Count > 0;
 			importTextBox.Text = diag.FileName;
-			listView.ItemsSource = soundBank.StreamInfos;
-			listView.DataContext = soundBank.StreamInfos;
-			extractAllButton.IsEnabled = containsEmedded;
-			saveButton.IsEnabled = containsEmedded;
-
-			if (!containsEmedded) {
-				AdonisUI.Controls.MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
-			}
+			DoGenericProcessing(ProcessSoundbankStreamData, OnProcessSoundbankStreamDataFinished);
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
-			var extractAll = ((Button)sender) == extractAllButton;
-			suppressErrors = extractAll;
-			mainGrid.IsEnabled = false;
-			BackgroundWorker worker = new BackgroundWorker {
-				WorkerReportsProgress = true
-			};
-			worker.DoWork += ExtractStreams;
-			worker.ProgressChanged += OnExtractStreamsProgress;
-			worker.RunWorkerCompleted += OnExtractStreamsFinished;
-			worker.RunWorkerAsync(extractAll ? soundBank.StreamInfos : listView.SelectedItems.Cast<StreamInfo>());
+			DoGenericProcessing(ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : listView.SelectedItems.Cast<StreamInfo>());
 		}
 
 		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
@@ -176,7 +157,6 @@ namespace PD2SoundBankEditor {
 			}
 			Trace.WriteLine($"Running converter with arguments {args}");
 			var convertProcess = new Process();
-			convertProcess.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 			convertProcess.StartInfo.UseShellExecute = false;
 			convertProcess.StartInfo.CreateNoWindow = true;
 			convertProcess.StartInfo.RedirectStandardOutput = true;
@@ -186,6 +166,44 @@ namespace PD2SoundBankEditor {
 			var output = convertProcess.StandardOutput.ReadToEnd();
 			convertProcess.WaitForExit();
 			return output;
+		}
+
+		private void DoGenericProcessing(Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
+			mainGrid.IsEnabled = false;
+			BackgroundWorker worker = new BackgroundWorker {
+				WorkerReportsProgress = true
+			};
+			worker.DoWork += (sender, e) => work(sender, e);
+			worker.ProgressChanged += OnGenericProcessingProgress;
+			if (workFinished != null) {
+				worker.RunWorkerCompleted += (sender, e) => workFinished(sender, e);
+			}
+			worker.RunWorkerCompleted += OnGenericProcessingFinished;
+			worker.RunWorkerAsync(argument);
+		}
+
+		void OnGenericProcessingProgress(object sender, ProgressChangedEventArgs e) {
+			progressBar.Value = e.ProgressPercentage;
+		}
+
+		void OnGenericProcessingFinished(object sender, RunWorkerCompletedEventArgs e) {
+			progressBar.Value = 0;
+			mainGrid.IsEnabled = true;
+		}
+
+		private void ProcessSoundbankStreamData(object sender, DoWorkEventArgs e) {
+			soundBank.ProcessStreamData(sender);
+		}
+
+		private void OnProcessSoundbankStreamDataFinished(object sender, RunWorkerCompletedEventArgs e) {
+			var containsEmedded = soundBank.StreamInfos.Count > 0;
+			listView.ItemsSource = soundBank.StreamInfos;
+			listView.DataContext = soundBank.StreamInfos;
+			extractAllButton.IsEnabled = containsEmedded;
+			saveButton.IsEnabled = containsEmedded;
+			if (!containsEmedded) {
+				AdonisUI.Controls.MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+			}
 		}
 
 		private void ExtractStreams(object sender, DoWorkEventArgs e) {
@@ -213,29 +231,15 @@ namespace PD2SoundBankEditor {
 				} else {
 					info.convertedFilePath = convertedFileName;
 				}
-				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100), errorStr);
+				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100));
 			}
 		}
-
-		void OnExtractStreamsProgress(object sender, ProgressChangedEventArgs e) {
-			progressBar.Value = e.ProgressPercentage;
-			if (suppressErrors) {
-				return;
-			}
-			var errorString = (string)e.UserState;
-			if (errorString != null && errorString != "") {
-				AdonisUI.Controls.MessageBox.Show(errorString, "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
-			}
-		}
-
 		void OnExtractStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
 			if (extractErrors > 0) {
-				AdonisUI.Controls.MessageBox.Show($"Extraction finished with {extractErrors} error(s)!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+				AdonisUI.Controls.MessageBox.Show($"Extraction finished with {extractErrors} coverter error(s)!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
 			} else {
 				AdonisUI.Controls.MessageBox.Show("Extraction complete!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
 			}
-			progressBar.Value = 0;
-			mainGrid.IsEnabled = true;
 		}
 
 		private void SetPlayButtonState(object sender, EventArgs e) {

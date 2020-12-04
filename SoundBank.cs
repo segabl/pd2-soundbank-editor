@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,7 +18,7 @@ namespace PD2SoundBankEditor {
 		public string convertedFilePath;
 
 		public uint Id { get => id; }
-		public double Size { get => Math.Round((data.Length / 1024f) * 10f) / 10f; }
+		public double Size { get => data.Length / 1024f; }
 		public string ReplacementFile { get => replacementFile; }
 
 		public override string ToString() {
@@ -61,7 +62,9 @@ namespace PD2SoundBankEditor {
 				Trace.WriteLine($"{sectionString}: {sectionLength} bytes");
 				sectionData.Add(new KeyValuePair<string, byte[]>(sectionString, reader.ReadBytes((int)sectionLength)));
 			}
+		}
 
+		public void ProcessStreamData(object sender = null) {
 			var didxIndex = sectionData.FindIndex(x => x.Key == "DIDX");
 			var dataIndex = sectionData.FindIndex(x => x.Key == "DATA");
 			if (didxIndex < 0 || dataIndex < 0) {
@@ -77,6 +80,9 @@ namespace PD2SoundBankEditor {
 					id = didxReader.ReadUInt32(),
 					data = dataData.Skip((int)didxReader.ReadUInt32()).Take((int)didxReader.ReadUInt32()).ToArray()
 				});
+				if (sender != null) {
+					(sender as BackgroundWorker).ReportProgress((int)((float)i / didxData.Length * 100));
+				}
 			}
 		}
 

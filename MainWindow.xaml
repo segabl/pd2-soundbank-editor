@@ -54,7 +54,7 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" />
-                        <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, Mode=OneWay, StringFormat={}{0}KB}" />
+                        <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, Mode=OneWay, StringFormat={}{0:0.0} KB}" />
                         <GridViewColumn Header="Replacement" DisplayMemberBinding="{Binding ReplacementFile}" />
                     </GridView>
                 </ListView.View>
