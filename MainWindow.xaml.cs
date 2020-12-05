@@ -30,11 +30,14 @@ namespace PD2SoundBankEditor {
 		private ApplicationSettings appSettings = new ApplicationSettings();
 		private MediaPlayer mediaPlayer = new MediaPlayer();
 		private SoundBank soundBank;
-		private int extractErrors;
 		private Button playingButton;
+		private bool converterAvailable;
+
+		public bool UpdateCheckEnabled { get => appSettings.checkForUpdates; set => appSettings.checkForUpdates = value; }
 
 		public MainWindow() {
 			InitializeComponent();
+			DataContext = this;
 
 			if (File.Exists(SETTINGS_PATH)) {
 				try {
@@ -44,15 +47,16 @@ namespace PD2SoundBankEditor {
 				}
 			}
 
-			if (!File.Exists(CONVERTER_PATH)) {
-				MessageBox.Show($"The sound converter could not be found, you will not be able to convert stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+			converterAvailable = File.Exists(CONVERTER_PATH);
+			if (!converterAvailable) {
+				MessageBox.Show($"The sound converter could not be found, you will not be able to play, convert or replace stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 
 			if (!Directory.Exists(TEMPORARY_PATH)) {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
 
-			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalDays > 1) {
+			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalHours > 6) {
 				try {
 					var client = new WebClient();
 					client.Headers.Add("User-Agent:PD2SoundbankEditor");
@@ -93,11 +97,28 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void OnWindowClosed(object sender, EventArgs e) {
-			if (Directory.Exists(TEMPORARY_PATH)) {
-				Directory.Delete(TEMPORARY_PATH, true);
+		private void CommandSaveCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
+			e.CanExecute = soundBank != null && soundBank.IsDirty && soundBank.StreamInfos.Count > 0;
+		}
+
+		private void CommandSaveExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) {
+			soundBank.Save(soundBank.FilePath);
+		}
+		private void CommandSaveAsCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
+			e.CanExecute = soundBank != null && soundBank.StreamInfos.Count > 0;
+		}
+
+		private void CommandSaveAsExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) {
+			var diag = new SaveFileDialog {
+				Filter = "Soundbanks (*.bnk)|*.bnk",
+				FileName = Path.GetFileName(soundBank.FilePath),
+				AddExtension = true
+			};
+			if (diag.ShowDialog() != true) {
+				return;
 			}
-			File.WriteAllText(SETTINGS_PATH, JsonConvert.SerializeObject(appSettings));
+			soundBank.Save(diag.FileName);
+			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 		}
 
 		private void OnOpenButtonClick(object sender, RoutedEventArgs e) {
@@ -107,14 +128,17 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
-			try {
-				soundBank = new SoundBank(diag.FileName);
-			} catch (Exception ex) {
-				MessageBox.Show($"There was an error trying to read the soundbank:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-				return;
-			}
-			importTextBox.Text = diag.FileName;
+			soundBank = new SoundBank(diag.FileName);
+			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 			DoGenericProcessing(ProcessSoundbankStreamData, OnProcessSoundbankStreamDataFinished);
+		}
+
+		private void OnExitButtonClick(object sender, RoutedEventArgs e) {
+			Close();
+		}
+
+		private void OnAboutButtonClick(object sender, RoutedEventArgs e) {
+			MessageBox.Show($"PD2 Soundbank Editor v{FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion}\nMade by Hoppip", "About", MessageBoxButton.OK, MessageBoxImage.Information);
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
@@ -130,35 +154,26 @@ namespace PD2SoundBankEditor {
 			}
 			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
 			var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
-			var errorString = StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
-			if (errorString != "") {
-				MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			try {
+				StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
+			} catch (Exception ex) {
+				MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
 			var data = File.ReadAllBytes(fileName);
 			foreach (var info in listView.SelectedItems.Cast<StreamInfo>()) {
-				info.data = data;
-				info.replacementFile = fileNameNoExt + ".wav";
-				info.convertedFilePath = null;
+				info.Data = data;
+				info.ReplacementFile = fileNameNoExt + ".wav";
+				info.ConvertedFilePath = null;
 			}
 			listView.Items.Refresh();
-			MessageBox.Show($"Files replaced!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
-		}
-
-		private void OnSaveButtonClick(object sender, RoutedEventArgs e) {
-			var diag = new SaveFileDialog {
-				Filter = "Soundbanks (*.bnk)|*.bnk",
-				FileName = Path.GetFileName(soundBank.FilePath),
-				AddExtension = true
-			};
-			if (diag.ShowDialog() != true) {
-				return;
-			}
-			soundBank.Save(diag.FileName);
-			MessageBox.Show("Soundbank saved!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
+			if (!converterAvailable) {
+				return;
+			}
+
 			var button = (Button)sender;
 			var info = (StreamInfo)button.DataContext;
 
@@ -170,34 +185,28 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 
-			if (info.convertedFilePath == null) {
-				var fileName = Path.Combine(TEMPORARY_PATH, $"{info.id}.stream");
+			if (info.ConvertedFilePath == null) {
+				var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
 				var convertedFileName = Path.ChangeExtension(fileName, "wav");
-				string errorString;
-				if (!info.Save(fileName)) {
-					errorString = info.errorString;
-				} else {
-					errorString = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
-				}
-				File.Delete(fileName);
-				if (errorString != "") {
-					MessageBox.Show($"Can't play file:\n{errorString}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				try {
+					info.Save(fileName);
+					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
+					info.ConvertedFilePath = convertedFileName;
+				} catch (Exception ex) {
+					MessageBox.Show($"Can't play file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 					return;
+				} finally {
+					File.Delete(fileName);
 				}
-				info.convertedFilePath = convertedFileName;
 			}
-			mediaPlayer.Open(new Uri(info.convertedFilePath));
+			mediaPlayer.Open(new Uri(info.ConvertedFilePath));
 			mediaPlayer.Play();
 			SetPlayButtonState(button, null);
 		}
 
 		private void OnListViewSelectionChanged(object sender, SelectionChangedEventArgs e) {
-			replaceSelectedButton.IsEnabled = listView.SelectedItems.Count > 0;
-			extractSelectedButton.IsEnabled = listView.SelectedItems.Count > 0;
-			if (listView.SelectedItems.Count > 0) {
-				var info = (StreamInfo)listView.SelectedItem;
-				Trace.WriteLine($"{info.id} clicked");
-			}
+			replaceSelectedButton.IsEnabled = converterAvailable && listView.SelectedItems.Count > 0;
+			extractSelectedButton.IsEnabled = converterAvailable && listView.SelectedItems.Count > 0;
 		}
 
 		private void OnListViewSizeChanged(object sender, SizeChangedEventArgs e) {
@@ -211,11 +220,14 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private string StartConverterProcess(string args) {
-			if (!File.Exists(CONVERTER_PATH)) {
-				return $"The sound converter could not be found! Please place {CONVERTER_NAME} in the directory of this application!";
+		private void OnWindowClosed(object sender, EventArgs e) {
+			if (Directory.Exists(TEMPORARY_PATH)) {
+				Directory.Delete(TEMPORARY_PATH, true);
 			}
-			Trace.WriteLine($"Running converter with arguments {args}");
+			File.WriteAllText(SETTINGS_PATH, JsonConvert.SerializeObject(appSettings));
+		}
+
+		private void StartConverterProcess(string args) {
 			var convertProcess = new Process();
 			convertProcess.StartInfo.UseShellExecute = false;
 			convertProcess.StartInfo.CreateNoWindow = true;
@@ -225,7 +237,9 @@ namespace PD2SoundBankEditor {
 			convertProcess.Start();
 			var output = convertProcess.StandardOutput.ReadToEnd();
 			convertProcess.WaitForExit();
-			return output;
+			if (output != "") {
+				throw new FileFormatException(output);
+			}
 		}
 
 		private void DoGenericProcessing(Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
@@ -259,8 +273,7 @@ namespace PD2SoundBankEditor {
 			var containsEmedded = soundBank.StreamInfos.Count > 0;
 			listView.ItemsSource = soundBank.StreamInfos;
 			listView.DataContext = soundBank.StreamInfos;
-			extractAllButton.IsEnabled = containsEmedded;
-			saveButton.IsEnabled = containsEmedded;
+			extractAllButton.IsEnabled = converterAvailable && containsEmedded;
 			if (!containsEmedded) {
 				MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
@@ -273,30 +286,27 @@ namespace PD2SoundBankEditor {
 			if (!Directory.Exists(savePath)) {
 				Directory.CreateDirectory(savePath);
 			}
-			var converterAvailable = File.Exists(CONVERTER_PATH);
 			var n = 0;
-			extractErrors = 0;
+			var errors = 0;
 			foreach (var info in streamDescriptions) {
-				var errorStr = "";
-				var fileName = Path.Join(savePath, info.id.ToString() + ".stream");
+				var fileName = Path.Join(savePath, $"{info.Id}.stream");
 				var convertedFileName = Path.ChangeExtension(fileName, "wav");
-				if (!info.Save(fileName)) {
-					errorStr = info.errorString;
-				} else if (converterAvailable) {
-					errorStr = StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
-				}
-				if (errorStr != "") {
-					errorStr = $"There was an error processing the stream {info.id}:\n{errorStr}";
-					extractErrors++;
-				} else {
-					info.convertedFilePath = convertedFileName;
+				try {
+					info.Save(fileName);
+					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
+					info.ConvertedFilePath = convertedFileName;
+				} catch (Exception ex) {
+					errors++;
 				}
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100));
 			}
+			e.Result = errors;
 		}
+
 		void OnExtractStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
-			if (extractErrors > 0) {
-				MessageBox.Show($"Extraction finished with {extractErrors} coverter error(s)!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+			var errors = (int)e.Result;
+			if (errors > 0) {
+				MessageBox.Show($"Extraction finished with {errors} converter {(errors == 1 ? "error" : "errors")}!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			} else {
 				MessageBox.Show("Extraction complete!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}

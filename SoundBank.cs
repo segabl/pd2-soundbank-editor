@@ -10,43 +10,40 @@ using System.Text;
 
 namespace PD2SoundBankEditor {
 	public class StreamInfo {
-		public uint id;
-		public byte[] data;
+		
+		private byte[] data;
 
-		public string errorString;
-		public string replacementFile;
-		public string convertedFilePath;
-
-		public uint Id { get => id; }
+		public uint Id { get; private set; }
+		public byte[] Data { 
+			get => data;
+			set {
+				data = value;
+				IsDirty = true;
+			}
+		}
 		public double Size { get => data.Length / 1024f; }
-		public string ReplacementFile { get => replacementFile; }
+		public string ConvertedFilePath { get; set; }
+		public string ReplacementFile { get; set; }
+		public string ErrorString { get; private set; }
+		public bool IsDirty { get; set; }
 
-		public override string ToString() {
-			return id.ToString();
+		public StreamInfo(uint id, byte[] data) {
+			Id = id;
+			this.data = data;
 		}
 
-		public bool Save(string file) {
-			Trace.WriteLine($"Saving file {file}...");
-
-			try {
-				var writer = new BinaryWriter(new FileStream(file, FileMode.Create));
-				writer.Write(data);
-				writer.Close();
-			} catch (Exception e) {
-				errorString = e.Message;
-				return false;
-			}
-
-			return true;
+		public void Save(string file) {
+			using var writer = new BinaryWriter(new FileStream(file, FileMode.Create));
+			writer.Write(data);
 		}
 	}
 
 	public class SoundBank {
+		private List<KeyValuePair<string, byte[]>> sectionData = new List<KeyValuePair<string, byte[]>>();
 
+		public bool IsDirty { get => StreamInfos.Any(info => info.IsDirty); }
 		public string FilePath { get; private set; }
 		public List<StreamInfo> StreamInfos { get; private set; } = new List<StreamInfo>();
-
-		private List<KeyValuePair<string, byte[]>> sectionData = new List<KeyValuePair<string, byte[]>>();
 
 		public SoundBank(string file) {
 			FilePath = file;
@@ -76,10 +73,7 @@ namespace PD2SoundBankEditor {
 			var dataData = sectionData[dataIndex].Value;
 			using var didxReader = new BinaryReader(new MemoryStream(didxData));
 			for (var i = 0; i < didxData.Length; i += 12) {
-				StreamInfos.Add(new StreamInfo {
-					id = didxReader.ReadUInt32(),
-					data = dataData.Skip((int)didxReader.ReadUInt32()).Take((int)didxReader.ReadUInt32()).ToArray()
-				});
+				StreamInfos.Add(new StreamInfo(didxReader.ReadUInt32(), dataData.Skip((int)didxReader.ReadUInt32()).Take((int)didxReader.ReadUInt32()).ToArray()));
 				if (sender != null) {
 					(sender as BackgroundWorker).ReportProgress((int)((float)i / didxData.Length * 100));
 				}
@@ -99,13 +93,15 @@ namespace PD2SoundBankEditor {
 					totalDataSize += align;
 				}
 
-				didxWriter.Write(info.id);
+				didxWriter.Write(info.Id);
 				didxWriter.Write(totalDataSize);
-				didxWriter.Write(info.data.Length);
+				didxWriter.Write(info.Data.Length);
 
-				dataWriter.Write(info.data);
+				dataWriter.Write(info.Data);
 
-				totalDataSize += info.data.Length;
+				info.IsDirty = false;
+
+				totalDataSize += info.Data.Length;
 			}
 			sectionData[sectionData.FindIndex(x => x.Key == "DIDX")] = new KeyValuePair<string, byte[]>("DIDX", ((MemoryStream)didxWriter.BaseStream).ToArray());
 			sectionData[sectionData.FindIndex(x => x.Key == "DATA")] = new KeyValuePair<string, byte[]>("DATA", ((MemoryStream)dataWriter.BaseStream).ToArray());
@@ -117,6 +113,8 @@ namespace PD2SoundBankEditor {
 				writer.Write(pair.Value.Length);
 				writer.Write(pair.Value);
 			}
+
+			FilePath = file;
 		}
 	}
 }

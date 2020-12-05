@@ -12,23 +12,40 @@
     <Window.Style>
         <Style TargetType="Window" BasedOn="{StaticResource {x:Type Window}}"/>
     </Window.Style>
+    <Window.CommandBindings>
+        <CommandBinding Command="Save" CanExecute="CommandSaveCanExecute" Executed="CommandSaveExecuted" />
+        <CommandBinding Command="SaveAs" CanExecute="CommandSaveAsCanExecute" Executed="CommandSaveAsExecuted" />
+    </Window.CommandBindings>
     <Grid>
-        <Grid Name="mainGrid" Margin="8,8,8,32">
+        <Grid Name="mainGrid" Margin="8,0,8,32">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3*"/>
-                <ColumnDefinition Width="8"/>
                 <ColumnDefinition Width="1*"/>
             </Grid.ColumnDefinitions>
 
             <Grid.RowDefinitions>
-                <RowDefinition Height="24" />
-                <RowDefinition Height="8"/>
-                <RowDefinition/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <TextBox Name="importTextBox" TextWrapping="NoWrap" Grid.Column="0" Grid.Row="0" IsEnabled="False"/>
-            <Button Name="openButton" Content="Open soundbank..." Click="OnOpenButtonClick" Grid.Column="2" Grid.Row="0" />
-            <ListView Name="listView" Grid.Column="0" Grid.Row="2" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" SelectionChanged="OnListViewSelectionChanged" SizeChanged="OnListViewSizeChanged">
+            <Menu IsMainMenu="True" Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8" HorizontalAlignment="Stretch">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_Open..." Click="OnOpenButtonClick"/>
+                    <Separator />
+                    <MenuItem Header="_Save" Command="Save"/>
+                    <MenuItem Header="Save _as..." Command="SaveAs"/>
+                    <Separator />
+                    <MenuItem Header="_Exit" Click="OnExitButtonClick"/>
+                </MenuItem>
+                <MenuItem Header="_Tools">
+                    <MenuItem Header="Check for updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_About..." Click="OnAboutButtonClick"/>
+                </MenuItem>
+            </Menu>
+
+            <ListView Name="listView" Grid.Column="0" Grid.Row="1" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" SelectionChanged="OnListViewSelectionChanged" SizeChanged="OnListViewSizeChanged">
                 <ListView.Resources>
                     <Style TargetType="{x:Type GridViewColumnHeader}" BasedOn="{StaticResource {x:Type GridViewColumnHeader}}">
                         <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -53,12 +70,13 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" />
-                        <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, Mode=OneWay, StringFormat={}{0:0.0} KB}" />
+                        <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, StringFormat={}{0:0.0} KB}" />
                         <GridViewColumn Header="Replacement" DisplayMemberBinding="{Binding ReplacementFile}" />
                     </GridView>
                 </ListView.View>
             </ListView>
-            <Grid Grid.Column="2" Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            
+            <Grid Grid.Column="1" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -69,7 +87,6 @@
                 <Button Grid.Row="0" Name="extractAllButton" Content="Extract all" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
                 <Button Grid.Row="1" Name="extractSelectedButton" Content="Extract selected" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
                 <Button Grid.Row="2" Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
-                <Button Grid.Row="4" Name="saveButton" Content="Save soundbank..." Click="OnSaveButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
             </Grid>
         </Grid>
         <ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>
