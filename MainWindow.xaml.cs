@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+﻿using AdonisUI.Controls;
+using Microsoft.Win32;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -11,12 +12,16 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using MessageBox = AdonisUI.Controls.MessageBox;
+using MessageBoxButton = AdonisUI.Controls.MessageBoxButton;
+using MessageBoxImage = AdonisUI.Controls.MessageBoxImage;
+using MessageBoxResult = AdonisUI.Controls.MessageBoxResult;
 
 namespace PD2SoundBankEditor {
 	/// <summary>
 	/// Interaction logic for MainWindow.xaml
 	/// </summary>
-	public partial class MainWindow : AdonisUI.Controls.AdonisWindow {
+	public partial class MainWindow : AdonisWindow {
 		static readonly string CONVERTER_NAME = "wwise_ima_adpcm.exe";
 		static readonly string CONVERTER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
 		static readonly string TEMP_DIR = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
@@ -30,7 +35,7 @@ namespace PD2SoundBankEditor {
 			InitializeComponent();
 
 			if (!File.Exists(CONVERTER_PATH)) {
-				AdonisUI.Controls.MessageBox.Show($"The sound converter could not be found, you will not be able to convert stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+				MessageBox.Show($"The sound converter could not be found, you will not be able to convert stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 
 			mediaPlayer.MediaEnded += SetPlayButtonState;
@@ -68,8 +73,8 @@ namespace PD2SoundBankEditor {
 			var latestVersion = latestRelease.tag_name[1..];
 			var productVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
 			if (CompareVersionStrings(latestVersion, productVersion) > 0) {
-				var result = AdonisUI.Controls.MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to download it?", "Information", AdonisUI.Controls.MessageBoxButton.YesNo, AdonisUI.Controls.MessageBoxImage.Information);
-				if (result == AdonisUI.Controls.MessageBoxResult.Yes) {
+				var result = MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to download it?", "Information", MessageBoxButton.YesNo, MessageBoxImage.Information);
+				if (result == MessageBoxResult.Yes) {
 					Process.Start(new ProcessStartInfo(latestRelease.assets[0].browser_download_url) { UseShellExecute = true });
 				}
 			}
@@ -91,7 +96,7 @@ namespace PD2SoundBankEditor {
 			try {
 				soundBank = new SoundBank(diag.FileName);
 			} catch (Exception ex) {
-				AdonisUI.Controls.MessageBox.Show($"There was an error trying to read the soundbank:\n{ex.Message}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
+				MessageBox.Show($"There was an error trying to read the soundbank:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
 			importTextBox.Text = diag.FileName;
@@ -113,7 +118,7 @@ namespace PD2SoundBankEditor {
 			var fileName = Path.Combine(TEMP_DIR, fileNameNoExt + ".stream");
 			var errorString = StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
 			if (errorString != "") {
-				AdonisUI.Controls.MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
+				MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
 			var data = File.ReadAllBytes(fileName);
@@ -123,7 +128,7 @@ namespace PD2SoundBankEditor {
 				info.convertedFilePath = null;
 			}
 			listView.Items.Refresh();
-			AdonisUI.Controls.MessageBox.Show($"Files replaced!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
+			MessageBox.Show($"Files replaced!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 		}
 
 		private void OnSaveButtonClick(object sender, RoutedEventArgs e) {
@@ -136,7 +141,7 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 			soundBank.Save(diag.FileName);
-			AdonisUI.Controls.MessageBox.Show("Soundbank saved!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
+			MessageBox.Show("Soundbank saved!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
@@ -162,7 +167,7 @@ namespace PD2SoundBankEditor {
 				}
 				File.Delete(fileName);
 				if (errorString != "") {
-					AdonisUI.Controls.MessageBox.Show($"Can't play file:\n{errorString}", "Error", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Error);
+					MessageBox.Show($"Can't play file:\n{errorString}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 					return;
 				}
 				info.convertedFilePath = convertedFileName;
@@ -243,7 +248,7 @@ namespace PD2SoundBankEditor {
 			extractAllButton.IsEnabled = containsEmedded;
 			saveButton.IsEnabled = containsEmedded;
 			if (!containsEmedded) {
-				AdonisUI.Controls.MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+				MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 		}
 
@@ -277,9 +282,9 @@ namespace PD2SoundBankEditor {
 		}
 		void OnExtractStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
 			if (extractErrors > 0) {
-				AdonisUI.Controls.MessageBox.Show($"Extraction finished with {extractErrors} coverter error(s)!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+				MessageBox.Show($"Extraction finished with {extractErrors} coverter error(s)!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			} else {
-				AdonisUI.Controls.MessageBox.Show("Extraction complete!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information);
+				MessageBox.Show("Extraction complete!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
 		}
 
@@ -296,13 +301,13 @@ namespace PD2SoundBankEditor {
 			}
 		}
 		private int CompareVersionStrings(string v1, string v2) {
-			var nums1 = v1.Replace("v", "").Split(".").Select(int.Parse).ToArray();
-			var nums2 = v2.Replace("v", "").Split(".").Select(int.Parse).ToArray();
+			var nums1 = v1.Split(".").Select(int.Parse).ToArray();
+			var nums2 = v2.Split(".").Select(int.Parse).ToArray();
 			for (var i = 0; i < nums1.Length && i < nums2.Length; i++) {
 				if (nums1[i] == nums2[i]) {
 					continue;
 				} else {
-					return nums1[i] > nums2[i] ? 1 : -1;
+					return Math.Sign(nums1[i] - nums2[i]);
 				}
 			}
 			return Math.Sign(nums1.Length - nums2.Length);
