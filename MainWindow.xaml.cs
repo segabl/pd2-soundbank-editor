@@ -1,10 +1,13 @@
 ﻿using Microsoft.Win32;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -25,12 +28,50 @@ namespace PD2SoundBankEditor {
 
 		public MainWindow() {
 			InitializeComponent();
+
 			if (!File.Exists(CONVERTER_PATH)) {
-				AdonisUI.Controls.MessageBox.Show($"The sound converter could not be found! Please place {CONVERTER_NAME} in the directory of this application!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
+				AdonisUI.Controls.MessageBox.Show($"The sound converter could not be found, you will not be able to convert stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Warning);
 			}
+
 			mediaPlayer.MediaEnded += SetPlayButtonState;
+
 			if (!Directory.Exists(TEMP_DIR)) {
 				Directory.CreateDirectory(TEMP_DIR);
+			}
+
+			try {
+				var client = new WebClient();
+				client.Headers.Add("User-Agent:PD2SoundbankEditor");
+				client.DownloadStringAsync(new Uri("https://api.github.com/repos/segabl/pd2-soundbank-editor/releases"));
+				client.DownloadStringCompleted += OnReleaseDataFetched;
+			} catch (Exception ex) {
+				Trace.WriteLine(ex.Message);
+			}
+		}
+
+		private void OnReleaseDataFetched(object sender, DownloadStringCompletedEventArgs e) {
+			if (e.Error != null || e.Cancelled) {
+				return;
+			}
+
+			GitHubRelease latestRelease = null;
+			try {
+				var allReleases = JsonConvert.DeserializeObject<List<GitHubRelease>>(e.Result);
+				latestRelease = allReleases.FirstOrDefault(r => !r.draft && !r.prerelease && r.assets.Count > 0);
+			} catch (Exception ex) {
+				Trace.WriteLine(ex.Message);
+			}
+			if (latestRelease == null) {
+				return;
+			}
+
+			var latestVersion = latestRelease.tag_name[1..];
+			var productVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
+			if (CompareVersionStrings(latestVersion, productVersion) > 0) {
+				var result = AdonisUI.Controls.MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to download it?", "Information", AdonisUI.Controls.MessageBoxButton.YesNo, AdonisUI.Controls.MessageBoxImage.Information);
+				if (result == AdonisUI.Controls.MessageBoxResult.Yes) {
+					Process.Start(new ProcessStartInfo(latestRelease.assets[0].browser_download_url) { UseShellExecute = true });
+				}
 			}
 		}
 
@@ -253,6 +294,18 @@ namespace PD2SoundBankEditor {
 				playingButton = (Button)sender;
 				playingButton.Content = "■";
 			}
+		}
+		private int CompareVersionStrings(string v1, string v2) {
+			var nums1 = v1.Replace("v", "").Split(".").Select(int.Parse).ToArray();
+			var nums2 = v2.Replace("v", "").Split(".").Select(int.Parse).ToArray();
+			for (var i = 0; i < nums1.Length && i < nums2.Length; i++) {
+				if (nums1[i] == nums2[i]) {
+					continue;
+				} else {
+					return nums1[i] > nums2[i] ? 1 : -1;
+				}
+			}
+			return Math.Sign(nums1.Length - nums2.Length);
 		}
 	}
 }
