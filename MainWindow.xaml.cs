@@ -24,34 +24,47 @@ namespace PD2SoundBankEditor {
 	public partial class MainWindow : AdonisWindow {
 		static readonly string CONVERTER_NAME = "wwise_ima_adpcm.exe";
 		static readonly string CONVERTER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
-		static readonly string TEMP_DIR = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
+		static readonly string SETTINGS_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+		static readonly string TEMPORARY_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
 
+		private ApplicationSettings appSettings = new ApplicationSettings();
+		private MediaPlayer mediaPlayer = new MediaPlayer();
 		private SoundBank soundBank;
 		private int extractErrors;
 		private Button playingButton;
-		private MediaPlayer mediaPlayer = new MediaPlayer();
 
 		public MainWindow() {
 			InitializeComponent();
+
+			if (File.Exists(SETTINGS_PATH)) {
+				try {
+					appSettings = JsonConvert.DeserializeObject<ApplicationSettings>(File.ReadAllText(SETTINGS_PATH));
+				} catch (Exception ex) {
+					Trace.WriteLine(ex.Message);
+				}
+			}
 
 			if (!File.Exists(CONVERTER_PATH)) {
 				MessageBox.Show($"The sound converter could not be found, you will not be able to convert stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 
+			if (!Directory.Exists(TEMPORARY_PATH)) {
+				Directory.CreateDirectory(TEMPORARY_PATH);
+			}
+
+			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalDays > 1) {
+				try {
+					var client = new WebClient();
+					client.Headers.Add("User-Agent:PD2SoundbankEditor");
+					client.DownloadStringAsync(new Uri("https://api.github.com/repos/segabl/pd2-soundbank-editor/releases"));
+					client.DownloadStringCompleted += OnReleaseDataFetched;
+					appSettings.lastUpdateCheck = DateTime.Now;
+				} catch (Exception ex) {
+					Trace.WriteLine(ex.Message);
+				}
+			}
+
 			mediaPlayer.MediaEnded += SetPlayButtonState;
-
-			if (!Directory.Exists(TEMP_DIR)) {
-				Directory.CreateDirectory(TEMP_DIR);
-			}
-
-			try {
-				var client = new WebClient();
-				client.Headers.Add("User-Agent:PD2SoundbankEditor");
-				client.DownloadStringAsync(new Uri("https://api.github.com/repos/segabl/pd2-soundbank-editor/releases"));
-				client.DownloadStringCompleted += OnReleaseDataFetched;
-			} catch (Exception ex) {
-				Trace.WriteLine(ex.Message);
-			}
 		}
 
 		private void OnReleaseDataFetched(object sender, DownloadStringCompletedEventArgs e) {
@@ -73,7 +86,7 @@ namespace PD2SoundBankEditor {
 			var latestVersion = latestRelease.tag_name[1..];
 			var productVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
 			if (CompareVersionStrings(latestVersion, productVersion) > 0) {
-				var result = MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to download it?", "Information", MessageBoxButton.YesNo, MessageBoxImage.Information);
+				var result = MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to download it now?", "Information", MessageBoxButton.YesNo, MessageBoxImage.Information);
 				if (result == MessageBoxResult.Yes) {
 					Process.Start(new ProcessStartInfo(latestRelease.assets[0].browser_download_url) { UseShellExecute = true });
 				}
@@ -81,9 +94,10 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnWindowClosed(object sender, EventArgs e) {
-			if (Directory.Exists(TEMP_DIR)) {
-				Directory.Delete(TEMP_DIR, true);
+			if (Directory.Exists(TEMPORARY_PATH)) {
+				Directory.Delete(TEMPORARY_PATH, true);
 			}
+			File.WriteAllText(SETTINGS_PATH, JsonConvert.SerializeObject(appSettings));
 		}
 
 		private void OnOpenButtonClick(object sender, RoutedEventArgs e) {
@@ -115,7 +129,7 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
-			var fileName = Path.Combine(TEMP_DIR, fileNameNoExt + ".stream");
+			var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
 			var errorString = StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
 			if (errorString != "") {
 				MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{errorString}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -157,7 +171,7 @@ namespace PD2SoundBankEditor {
 			}
 
 			if (info.convertedFilePath == null) {
-				var fileName = Path.Combine(TEMP_DIR, $"{info.id}.stream");
+				var fileName = Path.Combine(TEMPORARY_PATH, $"{info.id}.stream");
 				var convertedFileName = Path.ChangeExtension(fileName, "wav");
 				string errorString;
 				if (!info.Save(fileName)) {
