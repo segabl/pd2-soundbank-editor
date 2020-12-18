@@ -315,6 +315,7 @@ namespace PD2SoundBankEditor {
 		private void SetPlayButtonState(object sender, EventArgs e) {
 			if (sender == mediaPlayer || sender == null) {
 				mediaPlayer.Stop();
+				mediaPlayer.Close();
 				if (playingButton != null) {
 					playingButton.Content = "▶";
 				}
