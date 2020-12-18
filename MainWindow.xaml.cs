@@ -130,7 +130,7 @@ namespace PD2SoundBankEditor {
 			}
 			soundBank = new SoundBank(diag.FileName);
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
-			DoGenericProcessing(false, ProcessSoundbankStreamData, OnProcessSoundbankStreamDataFinished);
+			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded);
 		}
 
 		private void OnExitButtonClick(object sender, RoutedEventArgs e) {
@@ -271,15 +271,15 @@ namespace PD2SoundBankEditor {
 			mainGrid.IsEnabled = true;
 		}
 
-		private void ProcessSoundbankStreamData(object sender, DoWorkEventArgs e) {
+		private void LoadSoundBank(object sender, DoWorkEventArgs e) {
 			try {
-				soundBank.ProcessData();
+				soundBank.Load();
 			} catch (Exception ex) {
 				e.Result = ex.Message;
 			}
 		}
 
-		private void OnProcessSoundbankStreamDataFinished(object sender, RunWorkerCompletedEventArgs e) {
+		private void OnSoundBankLoaded(object sender, RunWorkerCompletedEventArgs e) {
 			if (e.Result != null) {
 				MessageBox.Show($"Can't open soundbank:\n{e.Result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;

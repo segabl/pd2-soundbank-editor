@@ -52,7 +52,7 @@ namespace PD2SoundBankEditor {
 		// Base Section
 		public class SectionBase {
 
-			public static SectionBase Create(SoundBank soundBank, BinaryReader reader) {
+			public static SectionBase Read(SoundBank soundBank, BinaryReader reader) {
 				var name = Encoding.ASCII.GetString(reader.ReadBytes(4));
 				return name switch {
 					"DIDX" => new SectionDIDX(soundBank, name, reader),
@@ -72,10 +72,10 @@ namespace PD2SoundBankEditor {
 				Name = name;
 				var length = reader.ReadInt32();
 				DataOffset = reader.BaseStream.Position;
-				ConsumeData(reader, length);
+				Read(reader, length);
 			}
 
-			protected virtual void ConsumeData(BinaryReader reader, int amount) {
+			protected virtual void Read(BinaryReader reader, int amount) {
 				Data = reader.ReadBytes(amount);
 			}
 
@@ -91,7 +91,7 @@ namespace PD2SoundBankEditor {
 		public class SectionDIDX : SectionBase {
 			public SectionDIDX(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
-			protected override void ConsumeData(BinaryReader reader, int amount) {
+			protected override void Read(BinaryReader reader, int amount) {
 				for (var i = 0; i < amount; i += 12) {
 					var id = reader.ReadUInt32();
 					var offset = reader.ReadInt32();
@@ -129,7 +129,7 @@ namespace PD2SoundBankEditor {
 		public class SectionDATA : SectionBase {
 			public SectionDATA(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
-			protected override void ConsumeData(BinaryReader reader, int amount) {
+			protected override void Read(BinaryReader reader, int amount) {
 				foreach (var info in ParentSoundBank.StreamInfos) {
 					reader.BaseStream.Seek(DataOffset + info.Offset, SeekOrigin.Begin);
 					var data = reader.ReadBytes(info.Data.Length);
@@ -160,7 +160,7 @@ namespace PD2SoundBankEditor {
 
 			// Base object
 			public class ObjectBase {
-				public static ObjectBase Create(SoundBank soundBank, BinaryReader reader) {
+				public static ObjectBase Read(SoundBank soundBank, BinaryReader reader) {
 					var type = reader.ReadByte();
 					return type switch {
 						2 => new ObjectSound(soundBank, type, reader),
@@ -176,10 +176,10 @@ namespace PD2SoundBankEditor {
 					ParentSoundBank = soundBank;
 					Type = type;
 					var length = reader.ReadInt32();
-					ConsumeData(reader, length);
+					Read(reader, length);
 				}
 
-				protected virtual void ConsumeData(BinaryReader reader, int amount) {
+				protected virtual void Read(BinaryReader reader, int amount) {
 					Data = reader.ReadBytes(amount);
 				}
 
@@ -214,10 +214,11 @@ namespace PD2SoundBankEditor {
 
 			public SectionHIRC(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
-			protected override void ConsumeData(BinaryReader reader, int amount) {
+			protected override void Read(BinaryReader reader, int amount) {
 				var numObjects = reader.ReadUInt32();
 				for (var i = 0; i < numObjects; i++) {
-					Objects.Add(ObjectBase.Create(ParentSoundBank, reader));
+					var obj = ObjectBase.Read(ParentSoundBank, reader);
+					Objects.Add(obj);
 				}
 				if (reader.BaseStream.Position != DataOffset + amount) {
 					throw new FileFormatException("Soundbank data is malformed.");
@@ -246,11 +247,12 @@ namespace PD2SoundBankEditor {
 			FilePath = file;
 		}
 
-		public void ProcessData() {
+		public void Load() {
 			// Read all sections
 			using var reader = new BinaryReader(new FileStream(FilePath, FileMode.Open));
 			while (reader.BaseStream.Position < reader.BaseStream.Length) {
-				Sections.Add(SectionBase.Create(this, reader));
+				var section = SectionBase.Read(this, reader);
+				Sections.Add(section);
 			}
 		}
 
