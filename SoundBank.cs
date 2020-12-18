@@ -9,6 +9,8 @@ using System.Text;
 // http://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
 
 namespace PD2SoundBankEditor {
+
+	// Helper Class containing information about embedded streams
 	public class StreamInfo {
 		
 		private byte[] data;
@@ -26,6 +28,7 @@ namespace PD2SoundBankEditor {
 		public string ReplacementFile { get; set; }
 		public string ErrorString { get; private set; }
 		public bool IsDirty { get; set; }
+		public int HIRCOffset { get; set; }
 
 		public StreamInfo(uint id, byte[] data) {
 			Id = id;
@@ -39,11 +42,68 @@ namespace PD2SoundBankEditor {
 	}
 
 	public class SoundBank {
-		private List<KeyValuePair<string, byte[]>> sectionData = new List<KeyValuePair<string, byte[]>>();
+
+		// Represents a generic section of the soundbank
+		public class Section {
+			public string Name { get; set; }
+			public byte[] Data { get; set; }
+
+			public Section(string name, byte[] data) {
+				Name = name;
+				Data = data;
+			}
+
+			public void Write(BinaryWriter writer) {
+				writer.Write(Encoding.ASCII.GetBytes(Name));
+				writer.Write(Data.Length);
+				writer.Write(Data);
+			}
+		}
+
+		// Represents a generic object in the HIRC section of the soundbank
+		public class HIRCObject {
+			public byte Type { get; set; }
+			public byte[] Data { get; set; }
+
+			public HIRCObject(byte type, byte[] data) {
+				Type = type;
+				Data = data;
+			}
+
+			public virtual void Write(BinaryWriter writer) {
+				writer.Write(Type);
+				writer.Write(Data.Length);
+				writer.Write(Data);
+			}
+		}
+
+		// Represents a sound object in the HIRC section of the soundbank
+		public class SoundObject : HIRCObject {
+			public StreamInfo StreamInfo { get; set; }
+
+			public SoundObject(byte type, byte[] data, List<StreamInfo> streamInfos) : base(type, data) {
+				var embed = BitConverter.ToUInt32(data, 8);
+				var audioId = BitConverter.ToUInt32(data, 12);
+				StreamInfo = embed == 0 ? streamInfos.Find(x => x.Id == audioId) : null;
+			}
+
+			public override void Write(BinaryWriter writer) {
+				if (StreamInfo != null) {
+					var offset = BitConverter.GetBytes(StreamInfo.HIRCOffset);
+					var length = BitConverter.GetBytes(StreamInfo.Data.Length);
+					Array.Copy(offset, 0, Data, 20, 4);
+					Array.Copy(length, 0, Data, 24, 4);
+				}
+				base.Write(writer);
+			}
+		}
+
+		private List<Section> sections = new List<Section>();
 
 		public bool IsDirty { get => StreamInfos.Any(info => info.IsDirty); }
 		public string FilePath { get; private set; }
 		public List<StreamInfo> StreamInfos { get; private set; } = new List<StreamInfo>();
+		public List<HIRCObject> HIRCObjects { get; private set; } = new List<HIRCObject>();
 
 		public SoundBank(string file) {
 			FilePath = file;
@@ -51,36 +111,63 @@ namespace PD2SoundBankEditor {
 			// Read all headers and their data
 			using var reader = new BinaryReader(new FileStream(file, FileMode.Open));
 			while (true) {
-				var sectionString = Encoding.UTF8.GetString(reader.ReadBytes(4));
+				var sectionString = Encoding.ASCII.GetString(reader.ReadBytes(4));
 				if (sectionString == "") {
 					break;
 				}
 				var sectionLength = reader.ReadUInt32();
 				Trace.WriteLine($"{sectionString}: {sectionLength} bytes");
-				sectionData.Add(new KeyValuePair<string, byte[]>(sectionString, reader.ReadBytes((int)sectionLength)));
+				sections.Add(new Section(sectionString, reader.ReadBytes((int)sectionLength)));
 			}
 		}
 
-		public void ProcessStreamData(object sender = null) {
-			var didxIndex = sectionData.FindIndex(x => x.Key == "DIDX");
-			var dataIndex = sectionData.FindIndex(x => x.Key == "DATA");
-			if (didxIndex < 0 || dataIndex < 0) {
+		public void ProcessData(object sender = null) {
+			var didxSection = sections.Find(x => x.Name == "DIDX");
+			var dataSection = sections.Find(x => x.Name == "DATA");
+			var hircSection = sections.Find(x => x.Name == "HIRC");
+			if (didxSection == null || dataSection == null || hircSection == null) {
 				return;
 			}
 
 			// Get the embedded stream data
-			var didxData = sectionData[didxIndex].Value;
-			var dataData = sectionData[dataIndex].Value;
-			using var didxReader = new BinaryReader(new MemoryStream(didxData));
-			for (var i = 0; i < didxData.Length; i += 12) {
-				StreamInfos.Add(new StreamInfo(didxReader.ReadUInt32(), dataData.Skip((int)didxReader.ReadUInt32()).Take((int)didxReader.ReadUInt32()).ToArray()));
+			using var didxReader = new BinaryReader(new MemoryStream(didxSection.Data));
+			for (var i = 0; i < didxSection.Data.Length; i += 12) {
+				var id = didxReader.ReadUInt32();
+				var offset = didxReader.ReadInt32();
+				var length = didxReader.ReadInt32();
+				StreamInfos.Add(new StreamInfo(id, dataSection.Data.Skip(offset).Take(length).ToArray()));
 				if (sender != null) {
-					(sender as BackgroundWorker).ReportProgress((int)((float)i / didxData.Length * 100));
+					(sender as BackgroundWorker).ReportProgress((int)((float)i / didxSection.Data.Length * 100));
+				}
+			}
+
+			// Get the HIRC data
+			using var hircReader = new BinaryReader(new MemoryStream(hircSection.Data));
+			var numObjects = hircReader.ReadUInt32();
+			for (var i = 0; i < numObjects; i++) {
+				var type = hircReader.ReadByte();
+				var len = hircReader.ReadInt32();
+				if (type == 2) {
+					HIRCObjects.Add(new SoundObject(type, hircReader.ReadBytes(len), StreamInfos));
+				} else {
+					HIRCObjects.Add(new HIRCObject(type, hircReader.ReadBytes(len)));
+				}
+				if (sender != null) {
+					(sender as BackgroundWorker).ReportProgress((int)((float)i / numObjects * 100));
 				}
 			}
 		}
 
 		public void Save(string file) {
+
+			// Get sound data offset for HIRC section
+			var hircOffset = 8;
+			foreach (var section in sections) {
+				if (section.Name == "DATA") {
+					break;
+				}
+				hircOffset += 8 + section.Data.Length;
+			}
 
 			// Write new DIDX and DATA
 			using var didxWriter = new BinaryWriter(new MemoryStream());
@@ -100,18 +187,25 @@ namespace PD2SoundBankEditor {
 				dataWriter.Write(info.Data);
 
 				info.IsDirty = false;
+				info.HIRCOffset = hircOffset + totalDataSize;
 
 				totalDataSize += info.Data.Length;
 			}
-			sectionData[sectionData.FindIndex(x => x.Key == "DIDX")] = new KeyValuePair<string, byte[]>("DIDX", ((MemoryStream)didxWriter.BaseStream).ToArray());
-			sectionData[sectionData.FindIndex(x => x.Key == "DATA")] = new KeyValuePair<string, byte[]>("DATA", ((MemoryStream)dataWriter.BaseStream).ToArray());
+			sections.Find(x => x.Name == "DIDX").Data = ((MemoryStream)didxWriter.BaseStream).ToArray();
+			sections.Find(x => x.Name == "DATA").Data = ((MemoryStream)dataWriter.BaseStream).ToArray();
+
+			// Write new HIRC
+			using var hircWriter = new BinaryWriter(new MemoryStream());
+			hircWriter.Write(HIRCObjects.Count);
+			foreach (var obj in HIRCObjects) {
+				obj.Write(hircWriter);
+			}
+			sections.Find(x => x.Name == "HIRC").Data = ((MemoryStream)hircWriter.BaseStream).ToArray();
 
 			// Write all data to file
 			using var writer = new BinaryWriter(new FileStream(file, FileMode.Create));
-			foreach (var pair in sectionData) {
-				writer.Write(Encoding.UTF8.GetBytes(pair.Key));
-				writer.Write(pair.Value.Length);
-				writer.Write(pair.Value);
+			foreach (var section in sections) {
+				section.Write(writer);
 			}
 
 			FilePath = file;

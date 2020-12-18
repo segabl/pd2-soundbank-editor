@@ -266,7 +266,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void ProcessSoundbankStreamData(object sender, DoWorkEventArgs e) {
-			soundBank.ProcessStreamData(sender);
+			soundBank.ProcessData(sender);
 		}
 
 		private void OnProcessSoundbankStreamDataFinished(object sender, RunWorkerCompletedEventArgs e) {
@@ -295,7 +295,7 @@ namespace PD2SoundBankEditor {
 					info.Save(fileName);
 					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
 					info.ConvertedFilePath = convertedFileName;
-				} catch (Exception ex) {
+				} catch (Exception) {
 					errors++;
 				}
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100));
