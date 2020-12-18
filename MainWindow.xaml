@@ -37,10 +37,11 @@
                     <Separator />
                     <MenuItem Header="_Exit" Click="OnExitButtonClick"/>
                 </MenuItem>
-                <MenuItem Header="_Tools">
-                    <MenuItem Header="Check for updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
-                </MenuItem>
+                <!--<MenuItem Header="_Tools">
+                </MenuItem>-->
                 <MenuItem Header="_Help">
+                    <MenuItem Header="Check for updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
+                    <Separator />
                     <MenuItem Header="_About..." Click="OnAboutButtonClick"/>
                 </MenuItem>
             </Menu>
