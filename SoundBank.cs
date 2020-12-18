@@ -11,9 +11,12 @@ using System.Text;
 namespace PD2SoundBankEditor {
 
 	// Helper Class containing information about embedded streams
-	public class StreamInfo {
+	public class StreamInfo : INotifyPropertyChanged {
 		
 		private byte[] data;
+		private string replacementFile;
+
+		public event PropertyChangedEventHandler PropertyChanged;
 
 		public uint Id { get; private set; }
 		public byte[] Data { 
@@ -21,11 +24,19 @@ namespace PD2SoundBankEditor {
 			set {
 				data = value;
 				IsDirty = true;
+				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Data"));
+				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Size"));
 			}
 		}
 		public double Size { get => data.Length / 1024f; }
-		public string ConvertedFilePath { get; set; }
-		public string ReplacementFile { get; set; }
+		public string ConvertedFilePath { get ; set; }
+		public string ReplacementFile { 
+			get => replacementFile;
+			set {
+				replacementFile = value;
+				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("ReplacementFile"));
+			}
+		}
 		public string ErrorString { get; private set; }
 		public bool IsDirty { get; set; }
 		public int HIRCOffset { get; set; }

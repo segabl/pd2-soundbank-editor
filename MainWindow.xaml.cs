@@ -166,7 +166,6 @@ namespace PD2SoundBankEditor {
 				info.ReplacementFile = fileNameNoExt + ".wav";
 				info.ConvertedFilePath = null;
 			}
-			listView.Items.Refresh();
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
