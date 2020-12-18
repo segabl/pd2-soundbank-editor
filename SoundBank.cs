@@ -102,6 +102,27 @@ namespace PD2SoundBankEditor {
 					throw new FileFormatException("Soundbank data is malformed.");
 				}
 			}
+
+			public override void Write(BinaryWriter writer) {
+				using var dataWriter = new BinaryWriter(new MemoryStream());
+				var totalDataSize = 0;
+				foreach (var info in ParentSoundBank.StreamInfos) {
+					var align = 16 - (totalDataSize % 16); // pad to nearest 16
+					if (align < 16) {
+						totalDataSize += align;
+					}
+					info.Offset = totalDataSize;
+
+					dataWriter.Write(info.Id);
+					dataWriter.Write(info.Offset);
+					dataWriter.Write(info.Data.Length);
+
+					totalDataSize += info.Data.Length;
+				}
+				Data = (dataWriter.BaseStream as MemoryStream).ToArray();
+
+				base.Write(writer);
+			}
 		}
 
 		// DATA Section
@@ -117,6 +138,20 @@ namespace PD2SoundBankEditor {
 				if (reader.BaseStream.Position != DataOffset + amount) {
 					throw new FileFormatException("Soundbank data is malformed.");
 				}
+			}
+
+			public override void Write(BinaryWriter writer) {
+				using var dataWriter = new BinaryWriter(new MemoryStream());
+				foreach (var info in ParentSoundBank.StreamInfos) {
+					var padding = info.Offset - dataWriter.BaseStream.Position;
+					if (padding > 0) {
+						dataWriter.Write(new byte[padding]);
+					}
+					dataWriter.Write(info.Data);
+				}
+				Data = (dataWriter.BaseStream as MemoryStream).ToArray();
+
+				base.Write(writer);
 			}
 		}
 
@@ -180,12 +215,12 @@ namespace PD2SoundBankEditor {
 			public SectionHIRC(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
 			protected override void ConsumeData(BinaryReader reader, int amount) {
-				base.ConsumeData(reader, amount);
-
-				using var dataReader = new BinaryReader(new MemoryStream(Data));
-				var numObjects = dataReader.ReadUInt32();
+				var numObjects = reader.ReadUInt32();
 				for (var i = 0; i < numObjects; i++) {
-					Objects.Add(ObjectBase.Create(ParentSoundBank, dataReader));
+					Objects.Add(ObjectBase.Create(ParentSoundBank, reader));
+				}
+				if (reader.BaseStream.Position != DataOffset + amount) {
+					throw new FileFormatException("Soundbank data is malformed.");
 				}
 			}
 
@@ -220,38 +255,11 @@ namespace PD2SoundBankEditor {
 		}
 
 		public void Save(string file) {
-
-			// Write new DIDX and DATA
-			// TODO: Move to section specific write code
-			using var didxWriter = new BinaryWriter(new MemoryStream());
-			using var dataWriter = new BinaryWriter(new MemoryStream());
-			var totalDataSize = 0;
-			foreach (var info in StreamInfos) {
-				var align = 16 - (totalDataSize % 16); // pad to nearest 16
-				if (align < 16) {
-					dataWriter.Write(new byte[align]);
-					totalDataSize += align;
-				}
-
-				didxWriter.Write(info.Id);
-				didxWriter.Write(totalDataSize);
-				didxWriter.Write(info.Data.Length);
-
-				dataWriter.Write(info.Data);
-
-				info.Offset = totalDataSize;
-
-				totalDataSize += info.Data.Length;
-			}
-			Sections.Find(x => x.Name == "DIDX").Data = ((MemoryStream)didxWriter.BaseStream).ToArray();
-			Sections.Find(x => x.Name == "DATA").Data = ((MemoryStream)dataWriter.BaseStream).ToArray();
-
 			// Write all sections to file
 			using var writer = new BinaryWriter(new FileStream(file, FileMode.Create));
 			foreach (var section in Sections) {
 				section.Write(writer);
 			}
-
 			FilePath = file;
 			IsDirty = false;
 		}
