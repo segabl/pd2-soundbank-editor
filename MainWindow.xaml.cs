@@ -130,7 +130,7 @@ namespace PD2SoundBankEditor {
 			}
 			soundBank = new SoundBank(diag.FileName);
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
-			DoGenericProcessing(ProcessSoundbankStreamData, OnProcessSoundbankStreamDataFinished);
+			DoGenericProcessing(false, ProcessSoundbankStreamData, OnProcessSoundbankStreamDataFinished);
 		}
 
 		private void OnExitButtonClick(object sender, RoutedEventArgs e) {
@@ -142,7 +142,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
-			DoGenericProcessing(ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : listView.SelectedItems.Cast<StreamInfo>());
+			DoGenericProcessing(true, ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : listView.SelectedItems.Cast<StreamInfo>());
 		}
 
 		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
@@ -166,6 +166,8 @@ namespace PD2SoundBankEditor {
 				info.ReplacementFile = fileNameNoExt + ".wav";
 				info.ConvertedFilePath = null;
 			}
+			soundBank.IsDirty = true;
+			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
@@ -241,17 +243,21 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void DoGenericProcessing(Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
+		private void DoGenericProcessing(bool reportProgress, Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
 			mainGrid.IsEnabled = false;
 			BackgroundWorker worker = new BackgroundWorker {
-				WorkerReportsProgress = true
+				WorkerReportsProgress = reportProgress
 			};
 			worker.DoWork += (sender, e) => work(sender, e);
-			worker.ProgressChanged += OnGenericProcessingProgress;
+			if (reportProgress) {
+				worker.ProgressChanged += OnGenericProcessingProgress;
+			} else {
+				progressBar.IsIndeterminate = true;
+			}
+			worker.RunWorkerCompleted += OnGenericProcessingFinished;
 			if (workFinished != null) {
 				worker.RunWorkerCompleted += (sender, e) => workFinished(sender, e);
 			}
-			worker.RunWorkerCompleted += OnGenericProcessingFinished;
 			worker.RunWorkerAsync(argument);
 		}
 
@@ -260,15 +266,24 @@ namespace PD2SoundBankEditor {
 		}
 
 		void OnGenericProcessingFinished(object sender, RunWorkerCompletedEventArgs e) {
+			progressBar.IsIndeterminate = false;
 			progressBar.Value = 0;
 			mainGrid.IsEnabled = true;
 		}
 
 		private void ProcessSoundbankStreamData(object sender, DoWorkEventArgs e) {
-			soundBank.ProcessData(sender);
+			try {
+				soundBank.ProcessData();
+			} catch (Exception ex) {
+				e.Result = ex.Message;
+			}
 		}
 
 		private void OnProcessSoundbankStreamDataFinished(object sender, RunWorkerCompletedEventArgs e) {
+			if (e.Result != null) {
+				MessageBox.Show($"Can't open soundbank:\n{e.Result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				return;
+			}
 			var containsEmedded = soundBank.StreamInfos.Count > 0;
 			listView.ItemsSource = soundBank.StreamInfos;
 			listView.DataContext = soundBank.StreamInfos;
