@@ -128,7 +128,7 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
-			OpenSoundBank(diag.FileName);
+			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, diag.FileName);
 		}
 
 		private void OnExitButtonClick(object sender, RoutedEventArgs e) {
@@ -241,7 +241,7 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void DoGenericProcessing(bool reportProgress, Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
+		public void DoGenericProcessing(bool reportProgress, Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
 			mainGrid.IsEnabled = false;
 			BackgroundWorker worker = new BackgroundWorker {
 				WorkerReportsProgress = reportProgress
@@ -259,30 +259,25 @@ namespace PD2SoundBankEditor {
 			worker.RunWorkerAsync(argument);
 		}
 
-		void OnGenericProcessingProgress(object sender, ProgressChangedEventArgs e) {
+		private void OnGenericProcessingProgress(object sender, ProgressChangedEventArgs e) {
 			progressBar.Value = e.ProgressPercentage;
 		}
 
-		void OnGenericProcessingFinished(object sender, RunWorkerCompletedEventArgs e) {
+		private void OnGenericProcessingFinished(object sender, RunWorkerCompletedEventArgs e) {
 			progressBar.IsIndeterminate = false;
 			progressBar.Value = 0;
 			mainGrid.IsEnabled = true;
 		}
 
-		public void OpenSoundBank(string file) {
-			soundBank = new SoundBank(file);
-			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded);
-		}
-
-		private void LoadSoundBank(object sender, DoWorkEventArgs e) {
+		public void LoadSoundBank(object sender, DoWorkEventArgs e) {
 			try {
-				soundBank.Load();
+				soundBank = new SoundBank(e.Argument as string);
 			} catch (Exception ex) {
 				e.Result = ex.Message;
 			}
 		}
 
-		private void OnSoundBankLoaded(object sender, RunWorkerCompletedEventArgs e) {
+		public void OnSoundBankLoaded(object sender, RunWorkerCompletedEventArgs e) {
 			if (e.Result != null) {
 				MessageBox.Show($"Can't open soundbank:\n{e.Result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;

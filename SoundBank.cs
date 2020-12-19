@@ -248,9 +248,7 @@ namespace PD2SoundBankEditor {
 
 		public SoundBank(string file) {
 			FilePath = file;
-		}
 
-		public void Load() {
 			// Read all sections
 			using var reader = new BinaryReader(new FileStream(FilePath, FileMode.Open));
 			while (reader.BaseStream.Position < reader.BaseStream.Length) {
@@ -265,6 +263,7 @@ namespace PD2SoundBankEditor {
 			foreach (var section in Sections) {
 				section.Write(writer);
 			}
+
 			FilePath = file;
 			IsDirty = false;
 		}

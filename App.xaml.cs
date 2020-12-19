@@ -10,7 +10,7 @@ namespace PD2SoundBankEditor {
 			wnd.Show();
 
 			if (e.Args.Length > 0 && File.Exists(e.Args[0])) {
-				wnd.OpenSoundBank(e.Args[0]);
+				wnd.DoGenericProcessing(false, wnd.LoadSoundBank, wnd.OnSoundBankLoaded, e.Args[0]);
 			}
 		}
 	}
