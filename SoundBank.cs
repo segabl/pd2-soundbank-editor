@@ -51,7 +51,6 @@ namespace PD2SoundBankEditor {
 
 		// Base Section
 		public class SectionBase {
-
 			public static SectionBase Read(SoundBank soundBank, BinaryReader reader) {
 				var name = Encoding.ASCII.GetString(reader.ReadBytes(4));
 				return name switch {
@@ -62,13 +61,13 @@ namespace PD2SoundBankEditor {
 				};
 			}
 
-			public SoundBank ParentSoundBank { get; protected set; }
+			public SoundBank SoundBank { get; protected set; }
 			public string Name { get; protected set; }
 			public byte[] Data { get; set; }
 			public long DataOffset { get; protected set; }
 
 			public SectionBase(SoundBank soundBank, string name, BinaryReader reader) {
-				ParentSoundBank = soundBank;
+				SoundBank = soundBank;
 				Name = name;
 				var length = reader.ReadInt32();
 				DataOffset = reader.BaseStream.Position;
@@ -99,7 +98,7 @@ namespace PD2SoundBankEditor {
 					var id = reader.ReadUInt32();
 					var offset = reader.ReadInt32();
 					var length = reader.ReadInt32();
-					ParentSoundBank.StreamInfos.Add(new StreamInfo(id, offset, length));
+					SoundBank.StreamInfos.Add(new StreamInfo(id, offset, length));
 				}
 				if (reader.BaseStream.Position != DataOffset + amount) {
 					throw new FileFormatException("Soundbank data is malformed.");
@@ -109,7 +108,7 @@ namespace PD2SoundBankEditor {
 			public override void Write(BinaryWriter writer) {
 				using var dataWriter = new BinaryWriter(new MemoryStream());
 				var totalDataSize = 0;
-				foreach (var info in ParentSoundBank.StreamInfos) {
+				foreach (var info in SoundBank.StreamInfos) {
 					var align = 16 - (totalDataSize % 16); // pad to nearest 16
 					if (align < 16) {
 						totalDataSize += align;
@@ -133,7 +132,7 @@ namespace PD2SoundBankEditor {
 			public SectionDATA(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
 			protected override void Read(BinaryReader reader, int amount) {
-				foreach (var info in ParentSoundBank.StreamInfos) {
+				foreach (var info in SoundBank.StreamInfos) {
 					reader.BaseStream.Seek(DataOffset + info.Offset, SeekOrigin.Begin);
 					var data = reader.ReadBytes(info.Data.Length);
 					Array.Copy(data, info.Data, data.Length);
@@ -145,7 +144,7 @@ namespace PD2SoundBankEditor {
 
 			public override void Write(BinaryWriter writer) {
 				using var dataWriter = new BinaryWriter(new MemoryStream());
-				foreach (var info in ParentSoundBank.StreamInfos) {
+				foreach (var info in SoundBank.StreamInfos) {
 					var padding = info.Offset - dataWriter.BaseStream.Position;
 					if (padding > 0) {
 						dataWriter.Write(new byte[padding]);
@@ -163,20 +162,20 @@ namespace PD2SoundBankEditor {
 
 			// Base object
 			public class ObjectBase {
-				public static ObjectBase Read(SoundBank soundBank, BinaryReader reader) {
+				public static ObjectBase Read(SectionHIRC section, BinaryReader reader) {
 					var type = reader.ReadByte();
 					return type switch {
-						2 => new ObjectSound(soundBank, type, reader),
-						_ => new ObjectBase(soundBank, type, reader)
+						2 => new ObjectSound(section, type, reader),
+						_ => new ObjectBase(section, type, reader)
 					};
 				}
 
-				public SoundBank ParentSoundBank { get; set; }
+				public SectionHIRC Section { get; set; }
 				public byte Type { get; set; }
 				public byte[] Data { get; set; }
 
-				public ObjectBase(SoundBank soundBank, byte type, BinaryReader reader) {
-					ParentSoundBank = soundBank;
+				public ObjectBase(SectionHIRC section, byte type, BinaryReader reader) {
+					Section = section;
 					Type = type;
 					var length = reader.ReadInt32();
 					Read(reader, length);
@@ -195,15 +194,18 @@ namespace PD2SoundBankEditor {
 
 			// Sound object
 			public class ObjectSound : ObjectBase {
-				public ObjectSound(SoundBank soundBank, byte type, BinaryReader reader) : base(soundBank, type, reader) { }
+				public StreamInfo StreamInfo { get; protected set; }
 
-				public override void Write(BinaryWriter writer) {
+				public ObjectSound(SectionHIRC section, byte type, BinaryReader reader) : base(section, type, reader) {
 					var embed = BitConverter.ToUInt32(Data, 8);
 					var audioId = BitConverter.ToUInt32(Data, 12);
-					var streamInfo = embed == 0 ? ParentSoundBank.StreamInfos.Find(x => x.Id == audioId) : null;
-					if (streamInfo != null) {
-						var offset = BitConverter.GetBytes(ParentSoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + streamInfo.Offset);
-						var length = BitConverter.GetBytes(streamInfo.Data.Length);
+					StreamInfo = embed == 0 ? Section.SoundBank.StreamInfos.Find(x => x.Id == audioId) : null;
+				}
+
+				public override void Write(BinaryWriter writer) {
+					if (StreamInfo != null) {
+						var offset = BitConverter.GetBytes(Section.SoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + StreamInfo.Offset);
+						var length = BitConverter.GetBytes(StreamInfo.Data.Length);
 						Array.Copy(offset, 0, Data, 20, 4);
 						Array.Copy(length, 0, Data, 24, 4);
 					}
@@ -220,7 +222,7 @@ namespace PD2SoundBankEditor {
 			protected override void Read(BinaryReader reader, int amount) {
 				var numObjects = reader.ReadUInt32();
 				for (var i = 0; i < numObjects; i++) {
-					var obj = ObjectBase.Read(ParentSoundBank, reader);
+					var obj = ObjectBase.Read(this, reader);
 					Objects.Add(obj);
 				}
 				if (reader.BaseStream.Position != DataOffset + amount) {
