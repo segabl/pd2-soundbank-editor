@@ -77,6 +77,9 @@ namespace PD2SoundBankEditor {
 
 			protected virtual void Read(BinaryReader reader, int amount) {
 				Data = reader.ReadBytes(amount);
+				if (reader.BaseStream.Position != DataOffset + amount) {
+					throw new FileFormatException("Soundbank data is malformed.");
+				}
 			}
 
 			public virtual void Write(BinaryWriter writer) {

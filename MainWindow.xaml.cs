@@ -128,9 +128,7 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
-			soundBank = new SoundBank(diag.FileName);
-			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
-			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded);
+			OpenSoundBank(diag.FileName);
 		}
 
 		private void OnExitButtonClick(object sender, RoutedEventArgs e) {
@@ -271,6 +269,11 @@ namespace PD2SoundBankEditor {
 			mainGrid.IsEnabled = true;
 		}
 
+		public void OpenSoundBank(string file) {
+			soundBank = new SoundBank(file);
+			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded);
+		}
+
 		private void LoadSoundBank(object sender, DoWorkEventArgs e) {
 			try {
 				soundBank.Load();
@@ -284,6 +287,9 @@ namespace PD2SoundBankEditor {
 				MessageBox.Show($"Can't open soundbank:\n{e.Result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
+
+			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
+
 			var containsEmedded = soundBank.StreamInfos.Count > 0;
 			listView.ItemsSource = soundBank.StreamInfos;
 			listView.DataContext = soundBank.StreamInfos;
