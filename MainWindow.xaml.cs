@@ -56,7 +56,7 @@ namespace PD2SoundBankEditor {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
 
-			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalHours > 6) {
+			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalHours > 1) {
 				try {
 					var client = new WebClient();
 					client.Headers.Add("User-Agent:PD2SoundbankEditor");
@@ -79,7 +79,7 @@ namespace PD2SoundBankEditor {
 			GitHubRelease latestRelease = null;
 			try {
 				var allReleases = JsonConvert.DeserializeObject<List<GitHubRelease>>(e.Result);
-				latestRelease = allReleases.FirstOrDefault(r => !r.draft && !r.prerelease && r.assets.Count > 0);
+				latestRelease = allReleases.FirstOrDefault(r => !r.draft && !r.prerelease);
 			} catch (Exception ex) {
 				Trace.WriteLine(ex.Message);
 			}
@@ -90,9 +90,9 @@ namespace PD2SoundBankEditor {
 			var latestVersion = latestRelease.tag_name[1..];
 			var productVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
 			if (CompareVersionStrings(latestVersion, productVersion) > 0) {
-				var result = MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to download it now?", "Information", MessageBoxButton.YesNo, MessageBoxImage.Information);
+				var result = MessageBox.Show($"There's a newer release ({latestRelease.tag_name}) of this application available. Do you want to go to the release page to download it now?", "Information", MessageBoxButton.YesNo, MessageBoxImage.Information);
 				if (result == MessageBoxResult.Yes) {
-					Process.Start(new ProcessStartInfo(latestRelease.assets[0].browser_download_url) { UseShellExecute = true });
+					Process.Start(new ProcessStartInfo(latestRelease.html_url) { UseShellExecute = true });
 				}
 			}
 		}
