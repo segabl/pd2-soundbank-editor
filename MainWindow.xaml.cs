@@ -68,6 +68,9 @@ namespace PD2SoundBankEditor {
 				}
 			}
 
+			recentFilesList.ItemsSource = appSettings.recentlyOpenedFiles;
+			recentFilesList.IsEnabled = appSettings.recentlyOpenedFiles.Count > 0;
+
 			mediaPlayer.MediaEnded += SetPlayButtonState;
 		}
 
@@ -128,6 +131,8 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
+			soundBank?.SaveNotes();
+
 			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, diag.FileName);
 		}
 
@@ -203,6 +208,21 @@ namespace PD2SoundBankEditor {
 			SetPlayButtonState(button, null);
 		}
 
+		private void OnRecentFileClick(object sender, RoutedEventArgs e) {
+			var menuItem = (MenuItem)sender;
+			var file = (string)menuItem.DataContext;
+
+			soundBank?.SaveNotes();
+
+			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, file);
+
+			if (!File.Exists(file)) {
+				appSettings.recentlyOpenedFiles.Remove(file);
+				recentFilesList.ItemsSource = null; //too lazy for proper notify
+				recentFilesList.ItemsSource = appSettings.recentlyOpenedFiles;
+			}
+		}
+
 		private void OnListViewSelectionChanged(object sender, SelectionChangedEventArgs e) {
 			replaceSelectedButton.IsEnabled = converterAvailable && listView.SelectedItems.Count > 0;
 			extractSelectedButton.IsEnabled = converterAvailable && listView.SelectedItems.Count > 0;
@@ -220,6 +240,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnWindowClosed(object sender, EventArgs e) {
+			soundBank?.SaveNotes();
 			if (Directory.Exists(TEMPORARY_PATH)) {
 				Directory.Delete(TEMPORARY_PATH, true);
 			}
@@ -275,6 +296,7 @@ namespace PD2SoundBankEditor {
 			} catch (Exception ex) {
 				e.Result = ex.Message;
 			}
+			
 		}
 
 		public void OnSoundBankLoaded(object sender, RunWorkerCompletedEventArgs e) {
@@ -282,6 +304,16 @@ namespace PD2SoundBankEditor {
 				MessageBox.Show($"Can't open soundbank:\n{e.Result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
+
+			if (appSettings.recentlyOpenedFiles.Contains(soundBank.FilePath)) {
+				appSettings.recentlyOpenedFiles.Remove(soundBank.FilePath);
+			}
+			appSettings.recentlyOpenedFiles.Insert(0, soundBank.FilePath);
+			if (appSettings.recentlyOpenedFiles.Count > 10) {
+				appSettings.recentlyOpenedFiles.RemoveRange(10, appSettings.recentlyOpenedFiles.Count - 10);
+			}
+			recentFilesList.ItemsSource = null; //too lazy for proper notify
+			recentFilesList.ItemsSource = appSettings.recentlyOpenedFiles;
 
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 

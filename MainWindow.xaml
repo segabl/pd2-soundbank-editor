@@ -35,6 +35,20 @@
                     <MenuItem Header="_Save" Command="Save"/>
                     <MenuItem Header="Save _as..." Command="SaveAs"/>
                     <Separator />
+                    <MenuItem Header="Recent _Files" Name="recentFilesList">
+                        <MenuItem.ItemContainerStyle>
+                            <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                <Setter Property="Header" Value="{Binding}"/>
+                                <EventSetter Event="Click" Handler="OnRecentFileClick"/>
+                            </Style>
+                        </MenuItem.ItemContainerStyle>
+                        <!--<MenuItem.ItemTemplate>
+                            <DataTemplate>
+                                <MenuItem Header="{Binding}" Click="OnRecentFileClick"></MenuItem>
+                            </DataTemplate>
+                        </MenuItem.ItemTemplate>-->
+                    </MenuItem>
+                    <Separator />
                     <MenuItem Header="_Exit" Click="OnExitButtonClick"/>
                 </MenuItem>
                 <!--<MenuItem Header="_Tools">
@@ -72,6 +86,13 @@
                         </GridViewColumn>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" />
                         <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, StringFormat={}{0:0.0} KB}" />
+                        <GridViewColumn Header="Note">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Width="96" Height="20" Padding="0,0,0,0" Margin="0, 0, 0, 0" Background="{x:Null}" BorderThickness="0" Text="{Binding Note}"></TextBox>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                         <GridViewColumn Header="Replacement" DisplayMemberBinding="{Binding ReplacementFile}" />
                     </GridView>
                 </ListView.View>

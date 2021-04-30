@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -14,6 +15,7 @@ namespace PD2SoundBankEditor {
 
 		public event PropertyChangedEventHandler PropertyChanged;
 
+		public SoundBank SoundBank { get; protected set; }
 		public uint Id { get; private set; }
 		public int Offset { get; set; }
 		public byte[] Data {
@@ -34,7 +36,19 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		public StreamInfo(uint id, int offset, int length) {
+		public string Note {
+			get => SoundBank.StreamNotes.TryGetValue(Id, out var n) ? n : "";
+			set {
+				if (value == "")
+					SoundBank.StreamNotes.Remove(Id);
+				else
+					SoundBank.StreamNotes[Id] = value;
+				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Note"));
+			}
+		}
+
+		public StreamInfo(SoundBank soundBank, uint id, int offset, int length) {
+			SoundBank = soundBank;
 			Id = id;
 			Offset = offset;
 			Data = new byte[length];
@@ -98,7 +112,7 @@ namespace PD2SoundBankEditor {
 					var id = reader.ReadUInt32();
 					var offset = reader.ReadInt32();
 					var length = reader.ReadInt32();
-					SoundBank.StreamInfos.Add(new StreamInfo(id, offset, length));
+					SoundBank.StreamInfos.Add(new StreamInfo(SoundBank, id, offset, length));
 				}
 				if (reader.BaseStream.Position != DataOffset + amount) {
 					throw new FileFormatException("Soundbank data is malformed.");
@@ -195,11 +209,13 @@ namespace PD2SoundBankEditor {
 			// Sound object
 			public class ObjectSound : ObjectBase {
 				public StreamInfo StreamInfo { get; protected set; }
+				public bool IsEmbedded { get; protected set; }
+				public uint AudioId { get; protected set; }
 
 				public ObjectSound(SectionHIRC section, byte type, BinaryReader reader) : base(section, type, reader) {
-					var embed = BitConverter.ToUInt32(Data, 8);
-					var audioId = BitConverter.ToUInt32(Data, 12);
-					StreamInfo = embed == 0 ? Section.SoundBank.StreamInfos.Find(x => x.Id == audioId) : null;
+					IsEmbedded = BitConverter.ToUInt32(Data, 8) == 0;
+					AudioId = BitConverter.ToUInt32(Data, 12);
+					StreamInfo = IsEmbedded ? Section.SoundBank.StreamInfos.Find(x => x.Id == AudioId) : null;
 				}
 
 				public override void Write(BinaryWriter writer) {
@@ -247,9 +263,12 @@ namespace PD2SoundBankEditor {
 		public bool IsDirty { get; set; }
 		public string FilePath { get; private set; }
 		public List<StreamInfo> StreamInfos { get; private set; } = new List<StreamInfo>();
+		public Dictionary<uint, string> StreamNotes { get; private set; } = new Dictionary<uint, string>();
 
 		public SoundBank(string file) {
 			FilePath = file;
+
+			LoadNotes();
 
 			// Read all sections
 			using var reader = new BinaryReader(new FileStream(FilePath, FileMode.Open));
@@ -268,6 +287,26 @@ namespace PD2SoundBankEditor {
 
 			FilePath = file;
 			IsDirty = false;
+		}
+
+		public void LoadNotes() {
+			var notesDir = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "notes");
+			if (!Directory.Exists(notesDir))
+				return;
+			var notesFile = Path.Join(notesDir, Path.GetFileName(FilePath) + ".json");
+			if (!File.Exists(notesFile))
+				return;
+			StreamNotes = JsonConvert.DeserializeObject<Dictionary<uint, string>>(File.ReadAllText(notesFile));
+		}
+
+		public void SaveNotes() {
+			if (StreamNotes.Count == 0)
+				return;
+			var notesDir = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "notes");
+			if (!Directory.Exists(notesDir))
+				Directory.CreateDirectory(notesDir);
+			var notesFile = Path.Join(notesDir, Path.GetFileName(FilePath) + ".json");
+			File.WriteAllText(notesFile, JsonConvert.SerializeObject(StreamNotes));
 		}
 	}
 }
