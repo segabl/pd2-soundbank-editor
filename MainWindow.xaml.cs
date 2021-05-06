@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using MessageBox = AdonisUI.Controls.MessageBox;
 using MessageBoxButton = AdonisUI.Controls.MessageBoxButton;
@@ -33,6 +34,7 @@ namespace PD2SoundBankEditor {
 		private SoundBank soundBank;
 		private Button playingButton;
 		private bool converterAvailable;
+		private CollectionViewSource soundBankViewSource = new CollectionViewSource();
 
 		public bool UpdateCheckEnabled { get => appSettings.checkForUpdates; set => appSettings.checkForUpdates = value; }
 
@@ -177,15 +179,15 @@ namespace PD2SoundBankEditor {
 
 		private void OnFilterTextBoxChanged(object sender, RoutedEventArgs e) {
 			var text = (sender as TextBox).Text;
+			var view = soundBankViewSource.View;
 			if (text.Length > 0) {
 				var rx = new Regex(text, RegexOptions.Compiled);
-				var filtered = soundBank.StreamInfos.Where(info => rx.Match(info.Note).Success || rx.Match(info.Id.ToString()).Success);
-				dataGrid.ItemsSource = filtered;
-				dataGrid.DataContext = filtered;
+				view.Filter = new Predicate<object>(info => rx.Match((info as StreamInfo).Note).Success || rx.Match((info as StreamInfo).Id.ToString()).Success);
 			} else {
-				dataGrid.ItemsSource = soundBank.StreamInfos;
-				dataGrid.DataContext = soundBank.StreamInfos;
+				view.Filter = null;
 			}
+			dataGrid.ItemsSource = view;
+			dataGrid.DataContext = view;
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
@@ -308,6 +310,8 @@ namespace PD2SoundBankEditor {
 				MessageBox.Show($"Can't open soundbank:\n{e.Result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
+
+			soundBankViewSource.Source = soundBank.StreamInfos;
 
 			if (appSettings.recentlyOpenedFiles.Contains(soundBank.FilePath)) {
 				appSettings.recentlyOpenedFiles.Remove(soundBank.FilePath);
