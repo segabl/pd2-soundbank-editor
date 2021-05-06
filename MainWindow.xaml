@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:adonisUi="clr-namespace:AdonisUI;assembly=AdonisUI"
         xmlns:adonisControls="clr-namespace:AdonisUI.Controls;assembly=AdonisUI"
+        xmlns:adonisExtensions="clr-namespace:AdonisUI.Extensions;assembly=AdonisUI"
         Closed="OnWindowClosed"
         Title="PD2 Soundbank Editor"
         Height="360"
@@ -55,43 +56,21 @@
                 </MenuItem>
             </Menu>
 
-            <ListView Name="listView" Grid.Column="0" Grid.Row="1" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" SelectionChanged="OnListViewSelectionChanged" SizeChanged="OnListViewSizeChanged">
-                <ListView.Resources>
-                    <Style TargetType="{x:Type GridViewColumnHeader}" BasedOn="{StaticResource {x:Type GridViewColumnHeader}}">
-                        <Setter Property="HorizontalContentAlignment" Value="Left" />
-                    </Style>
-                    <Style TargetType="{x:Type ListView}" BasedOn="{StaticResource {x:Type ListView}}">
-                        <Setter Property="ItemContainerStyle">
-                            <Setter.Value>
-                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
-                                    <Setter Property="VerticalContentAlignment" Value="Center"/>
-                                </Style>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListView.Resources>
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn>
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="▶" Click="OnPlayButtonClick" Width="20" Height="20" Padding="0,0,0,0"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" />
-                        <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, StringFormat={}{0:0.0} KB}" />
-                        <GridViewColumn Header="Note" DisplayMemberBinding="{Binding Note}">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBox Width="96" Height="20" Padding="0,0,0,0" Margin="0, 0, 0, 0" Background="{x:Null}" BorderThickness="0" Text="{Binding Note}"></TextBox>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="Replacement" DisplayMemberBinding="{Binding ReplacementFile}" />
-                    </GridView>
-                </ListView.View>
-            </ListView>
+            <DataGrid Name="dataGrid" AutoGenerateColumns="False" Grid.Column="0" Grid.Row="1" SelectionChanged="OnDataGridSelectionChanged" HorizontalScrollBarVisibility="Disabled">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn SortMemberPath="Offset" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="▶" Click="OnPlayButtonClick" Width="20" Height="20" Padding="0,0,0,0"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Size" Binding="{Binding Size, StringFormat={}{0:0.0} KB}" IsReadOnly="True"/>
+                    <DataGridTextColumn Width="*" Header="Note" Binding="{Binding Note}" IsReadOnly="False"/>
+                    <DataGridTextColumn Width="*" Header="Replacement" Binding="{Binding ReplacementFile}" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
             
             <Grid Grid.Column="1" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,0,0">
                 <Grid.RowDefinitions>
@@ -104,6 +83,7 @@
                 <Button Grid.Row="0" Name="extractAllButton" Content="Extract all" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
                 <Button Grid.Row="1" Name="extractSelectedButton" Content="Extract selected" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
                 <Button Grid.Row="2" Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
+                <TextBox Grid.Row="4" Name="filterTextBox" adonisExtensions:WatermarkExtension.Watermark="Filter" TextChanged="OnFilterTextBoxChanged" IsEnabled="False" Height="24"/>
             </Grid>
         </Grid>
         <ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>

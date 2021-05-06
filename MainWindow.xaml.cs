@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -106,6 +107,7 @@ namespace PD2SoundBankEditor {
 
 		private void CommandSaveExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) {
 			soundBank.Save(soundBank.FilePath);
+			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 		}
 		private void CommandSaveAsCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
 			e.CanExecute = soundBank != null && soundBank.StreamInfos.Count > 0;
@@ -145,7 +147,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
-			DoGenericProcessing(true, ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : listView.SelectedItems.Cast<StreamInfo>());
+			DoGenericProcessing(true, ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : dataGrid.SelectedItems.Cast<StreamInfo>());
 		}
 
 		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
@@ -164,13 +166,26 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 			var data = File.ReadAllBytes(fileName);
-			foreach (var info in listView.SelectedItems.Cast<StreamInfo>()) {
+			foreach (var info in dataGrid.SelectedItems.Cast<StreamInfo>()) {
 				info.Data = data;
 				info.ReplacementFile = fileNameNoExt + ".wav";
 				info.ConvertedFilePath = null;
 			}
 			soundBank.IsDirty = true;
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
+		}
+
+		private void OnFilterTextBoxChanged(object sender, RoutedEventArgs e) {
+			var text = (sender as TextBox).Text;
+			if (text.Length > 0) {
+				var rx = new Regex(text, RegexOptions.Compiled);
+				var filtered = soundBank.StreamInfos.Where(info => rx.Match(info.Note).Success || rx.Match(info.Id.ToString()).Success);
+				dataGrid.ItemsSource = filtered;
+				dataGrid.DataContext = filtered;
+			} else {
+				dataGrid.ItemsSource = soundBank.StreamInfos;
+				dataGrid.DataContext = soundBank.StreamInfos;
+			}
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
@@ -223,20 +238,9 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void OnListViewSelectionChanged(object sender, SelectionChangedEventArgs e) {
-			replaceSelectedButton.IsEnabled = converterAvailable && listView.SelectedItems.Count > 0;
-			extractSelectedButton.IsEnabled = converterAvailable && listView.SelectedItems.Count > 0;
-		}
-
-		private void OnListViewSizeChanged(object sender, SizeChangedEventArgs e) {
-			ListView listView = sender as ListView;
-			GridView gridView = listView.View as GridView;
-
-			gridView.Columns[0].Width = 40;
-			var workingWidth = Math.Max(0, listView.ActualWidth - SystemParameters.VerticalScrollBarWidth * 2 - gridView.Columns[0].Width - 16);
-			for (var i = 1; i < gridView.Columns.Count; i++) {
-				gridView.Columns[i].Width = workingWidth / (gridView.Columns.Count - 1);
-			}
+		private void OnDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
+			replaceSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
+			extractSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
 		}
 
 		private void OnWindowClosed(object sender, EventArgs e) {
@@ -318,9 +322,9 @@ namespace PD2SoundBankEditor {
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 
 			var containsEmedded = soundBank.StreamInfos.Count > 0;
-			listView.ItemsSource = soundBank.StreamInfos;
-			listView.DataContext = soundBank.StreamInfos;
+			OnFilterTextBoxChanged(filterTextBox, null);
 			extractAllButton.IsEnabled = converterAvailable && containsEmedded;
+			filterTextBox.IsEnabled = containsEmedded;
 			if (!containsEmedded) {
 				MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
