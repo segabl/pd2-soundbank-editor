@@ -42,11 +42,6 @@
                                 <EventSetter Event="Click" Handler="OnRecentFileClick"/>
                             </Style>
                         </MenuItem.ItemContainerStyle>
-                        <!--<MenuItem.ItemTemplate>
-                            <DataTemplate>
-                                <MenuItem Header="{Binding}" Click="OnRecentFileClick"></MenuItem>
-                            </DataTemplate>
-                        </MenuItem.ItemTemplate>-->
                     </MenuItem>
                     <Separator />
                     <MenuItem Header="_Exit" Click="OnExitButtonClick"/>
@@ -86,7 +81,7 @@
                         </GridViewColumn>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" />
                         <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size, StringFormat={}{0:0.0} KB}" />
-                        <GridViewColumn Header="Note">
+                        <GridViewColumn Header="Note" DisplayMemberBinding="{Binding Note}">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBox Width="96" Height="20" Padding="0,0,0,0" Margin="0, 0, 0, 0" Background="{x:Null}" BorderThickness="0" Text="{Binding Note}"></TextBox>
