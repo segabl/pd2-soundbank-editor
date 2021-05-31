@@ -27,7 +27,6 @@ namespace PD2SoundBankEditor {
 			}
 		}
 		public double Size { get => data.Length / 1024f; }
-		public string ConvertedFilePath { get; set; }
 		public string ReplacementFile {
 			get => replacementFile;
 			set {

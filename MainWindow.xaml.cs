@@ -171,7 +171,9 @@ namespace PD2SoundBankEditor {
 			foreach (var info in dataGrid.SelectedItems.Cast<StreamInfo>()) {
 				info.Data = data;
 				info.ReplacementFile = fileNameNoExt + ".wav";
-				info.ConvertedFilePath = null;
+				var tmpFile = Path.Combine(TEMPORARY_PATH, info.Id + ".wav");
+				if (File.Exists(tmpFile))
+					File.Delete(tmpFile);
 			}
 			soundBank.IsDirty = true;
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
@@ -206,13 +208,12 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 
-			if (info.ConvertedFilePath == null) {
-				var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
-				var convertedFileName = Path.ChangeExtension(fileName, "wav");
+			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
+			var convertedFileName = Path.ChangeExtension(fileName, "wav");
+			if (!File.Exists(convertedFileName)) {
 				try {
 					info.Save(fileName);
 					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
-					info.ConvertedFilePath = convertedFileName;
 				} catch (Exception ex) {
 					MessageBox.Show($"Can't play file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 					return;
@@ -220,7 +221,7 @@ namespace PD2SoundBankEditor {
 					File.Delete(fileName);
 				}
 			}
-			mediaPlayer.Open(new Uri(info.ConvertedFilePath));
+			mediaPlayer.Open(new Uri(convertedFileName));
 			mediaPlayer.Play();
 			SetPlayButtonState(button, null);
 		}
@@ -349,7 +350,6 @@ namespace PD2SoundBankEditor {
 				try {
 					info.Save(fileName);
 					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
-					info.ConvertedFilePath = convertedFileName;
 				} catch (Exception) {
 					errors++;
 				}
