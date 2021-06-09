@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -35,6 +36,7 @@ namespace PD2SoundBankEditor {
 		private Button playingButton;
 		private bool converterAvailable;
 		private CollectionViewSource soundBankViewSource = new CollectionViewSource();
+		private Timer autosaveNotesTimer;
 
 		public bool UpdateCheckEnabled { get => appSettings.checkForUpdates; set => appSettings.checkForUpdates = value; }
 
@@ -73,6 +75,14 @@ namespace PD2SoundBankEditor {
 
 			recentFilesList.ItemsSource = appSettings.recentlyOpenedFiles;
 			recentFilesList.IsEnabled = appSettings.recentlyOpenedFiles.Count > 0;
+
+			autosaveNotesTimer = new Timer(60000) {
+				AutoReset = true,
+				Enabled = true
+			};
+			autosaveNotesTimer.Elapsed += (object source, ElapsedEventArgs e) => {
+				soundBank?.SaveNotes();
+			};
 
 			mediaPlayer.MediaEnded += SetPlayButtonState;
 		}
@@ -210,20 +220,25 @@ namespace PD2SoundBankEditor {
 
 			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
 			var convertedFileName = Path.ChangeExtension(fileName, "wav");
+			var debugStr = "";
 			if (!File.Exists(convertedFileName)) {
 				try {
+					debugStr = "Failed at saving stream";
 					info.Save(fileName);
+					debugStr = "Failed at converting stream";
 					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
-				} catch (Exception ex) {
-					MessageBox.Show($"Can't play file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-					return;
-				} finally {
 					File.Delete(fileName);
+				} catch (Exception ex) {
+					MessageBox.Show($"{debugStr}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+					return;
 				}
 			}
-			mediaPlayer.Open(new Uri(convertedFileName));
-			mediaPlayer.Play();
-			SetPlayButtonState(button, null);
+
+			if (File.Exists(convertedFileName)) {
+				mediaPlayer.Open(new Uri(convertedFileName));
+				mediaPlayer.Play();
+				SetPlayButtonState(button, null);
+			}
 		}
 
 		private void OnRecentFileClick(object sender, RoutedEventArgs e) {
