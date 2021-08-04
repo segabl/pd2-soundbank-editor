@@ -39,6 +39,7 @@ namespace PD2SoundBankEditor {
 		private Timer autosaveNotesTimer;
 
 		public bool UpdateCheckEnabled { get => appSettings.checkForUpdates; set => appSettings.checkForUpdates = value; }
+		public bool SuppressErrorsEnabled { get => appSettings.suppressErrors; set => appSettings.suppressErrors = value; }
 
 		public MainWindow() {
 			InitializeComponent();
@@ -266,7 +267,9 @@ namespace PD2SoundBankEditor {
 					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
 					File.Delete(fileName);
 				} catch (Exception ex) {
-					MessageBox.Show($"{debugStr}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+					if (!SuppressErrorsEnabled) {
+						MessageBox.Show($"{debugStr}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+					}
 					return;
 				}
 			}
