@@ -182,11 +182,48 @@ namespace PD2SoundBankEditor {
 				info.Data = data;
 				info.ReplacementFile = fileNameNoExt + ".wav";
 				var tmpFile = Path.Combine(TEMPORARY_PATH, info.Id + ".wav");
-				if (File.Exists(tmpFile))
+				if (File.Exists(tmpFile)) {
 					File.Delete(tmpFile);
+				}
 			}
 			soundBank.IsDirty = true;
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
+		}
+
+		private void OnReplaceByNamesButtonClick(object sender, RoutedEventArgs e) {
+			var diag = new OpenFileDialog {
+				Filter = "Wave audio files (*.wav)|*.wav",
+				Multiselect = true
+			};
+			if (diag.ShowDialog() != true) {
+				return;
+			}
+
+			var notfound = new List<string>();
+			var mappings = new Dictionary<string, StreamInfo>();
+			foreach (var file in diag.FileNames) {
+				var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
+				var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
+				if (!uint.TryParse(fileNameNoExt, out var targetStreamId)) {
+					notfound.Add(fileNameNoExt + ".wav");
+					continue;
+				}
+				var targetStreamInfo = soundBank.StreamInfos.Find(info => info.Id == targetStreamId);
+				if (targetStreamInfo == null) {
+					notfound.Add(fileNameNoExt + ".wav");
+					continue;
+				}
+
+				mappings[file] = targetStreamInfo;
+			}
+
+			if (notfound.Count > 0) {
+				MessageBox.Show($"{notfound.Count} files could not be matched to any ID in this soundbank:\n{string.Join(", ", notfound)}", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+			}
+
+			if (mappings.Count > 0) {
+				DoGenericProcessing(true, ReplaceStreams, OnReplaceStreamsFinished, mappings);
+			}
 		}
 
 		private void OnFilterTextBoxChanged(object sender, RoutedEventArgs e) {
@@ -318,7 +355,6 @@ namespace PD2SoundBankEditor {
 			} catch (Exception ex) {
 				e.Result = ex.Message;
 			}
-			
 		}
 
 		public void OnSoundBankLoaded(object sender, RunWorkerCompletedEventArgs e) {
@@ -344,6 +380,7 @@ namespace PD2SoundBankEditor {
 			var containsEmedded = soundBank.StreamInfos.Count > 0;
 			OnFilterTextBoxChanged(filterTextBox, null);
 			extractAllButton.IsEnabled = converterAvailable && containsEmedded;
+			replaceByNamesButton.IsEnabled = converterAvailable && containsEmedded;
 			filterTextBox.IsEnabled = containsEmedded;
 			if (!containsEmedded) {
 				MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -379,6 +416,44 @@ namespace PD2SoundBankEditor {
 				MessageBox.Show($"Extraction finished with {errors} converter {(errors == 1 ? "error" : "errors")}!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			} else {
 				MessageBox.Show("Extraction complete!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+			}
+		}
+
+		private void ReplaceStreams(object sender, DoWorkEventArgs e) {
+			var fileMappings = (Dictionary<string, StreamInfo>)e.Argument;
+			var n = 0;
+			var errors = 0;
+			foreach (var mapping in fileMappings) {
+				var file = mapping.Key;
+				var targetStreamInfo = mapping.Value;
+				var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
+				var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
+				try {
+					StartConverterProcess($"-e \"{file}\" \"{fileName}\"");
+				} catch (Exception) {
+					errors++;
+				}
+				targetStreamInfo.Data = File.ReadAllBytes(fileName);
+				targetStreamInfo.ReplacementFile = fileNameNoExt + ".wav";
+				var tmpFile = Path.Combine(TEMPORARY_PATH, targetStreamInfo.Id + ".wav");
+				if (File.Exists(tmpFile)) {
+					File.Delete(tmpFile);
+				}
+				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)fileMappings.Count * 100));
+				soundBank.IsDirty = true;
+			}
+			e.Result = errors;
+		}
+
+		void OnReplaceStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
+			var errors = (int)e.Result;
+			if (errors > 0) {
+				MessageBox.Show($"Sound replacement finished with {errors} errors!", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+			} else {
+				MessageBox.Show($"Sound replacement finished successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+			}
+			if (soundBank.IsDirty) {
+				Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
 			}
 		}
 
