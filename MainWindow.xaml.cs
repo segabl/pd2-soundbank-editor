@@ -231,8 +231,12 @@ namespace PD2SoundBankEditor {
 			var text = (sender as TextBox).Text;
 			var view = soundBankViewSource.View;
 			if (text.Length > 0) {
-				var rx = new Regex(text, RegexOptions.Compiled);
-				view.Filter = new Predicate<object>(info => rx.Match((info as StreamInfo).Note).Success || rx.Match((info as StreamInfo).Id.ToString()).Success);
+				try {
+					var rx = new Regex(text, RegexOptions.Compiled);
+					view.Filter = new Predicate<object>(info => rx.Match((info as StreamInfo).Note).Success || rx.Match((info as StreamInfo).Id.ToString()).Success);
+				} catch (Exception) {
+					view.Filter = new Predicate<object>(info => (info as StreamInfo).Note.Contains(text) || (info as StreamInfo).Id.ToString().Contains(text));
+				}
 			} else {
 				view.Filter = null;
 			}
