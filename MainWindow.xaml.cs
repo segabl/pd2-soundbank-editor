@@ -58,10 +58,6 @@ namespace PD2SoundBankEditor {
 				MessageBox.Show($"The sound converter could not be found, you will not be able to play, convert or replace stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 
-			if (!Directory.Exists(TEMPORARY_PATH)) {
-				Directory.CreateDirectory(TEMPORARY_PATH);
-			}
-
 			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalHours > 1) {
 				try {
 					var client = new WebClient();
@@ -170,6 +166,9 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
+			if (!Directory.Exists(TEMPORARY_PATH)) {
+				Directory.CreateDirectory(TEMPORARY_PATH);
+			}
 			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
 			var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
 			try {
@@ -198,6 +197,10 @@ namespace PD2SoundBankEditor {
 			};
 			if (diag.ShowDialog() != true) {
 				return;
+			}
+
+			if (!Directory.Exists(TEMPORARY_PATH)) {
+				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
 
 			var notfound = new List<string>();
@@ -258,6 +261,10 @@ namespace PD2SoundBankEditor {
 
 			if (sameButton) {
 				return;
+			}
+
+			if (!Directory.Exists(TEMPORARY_PATH)) {
+				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
 
 			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
@@ -430,6 +437,9 @@ namespace PD2SoundBankEditor {
 			var fileMappings = (Dictionary<string, StreamInfo>)e.Argument;
 			var n = 0;
 			var errors = 0;
+			if (!Directory.Exists(TEMPORARY_PATH)) {
+				Directory.CreateDirectory(TEMPORARY_PATH);
+			}
 			foreach (var mapping in fileMappings) {
 				var file = mapping.Key;
 				var targetStreamInfo = mapping.Value;
