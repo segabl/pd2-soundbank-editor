@@ -29,6 +29,7 @@ namespace PD2SoundBankEditor {
 		static readonly string CONVERTER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
 		static readonly string SETTINGS_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
 		static readonly string TEMPORARY_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
+		static readonly string LOG_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "log.txt");
 
 		private ApplicationSettings appSettings = new ApplicationSettings();
 		private MediaPlayer mediaPlayer = new MediaPlayer();
@@ -50,6 +51,7 @@ namespace PD2SoundBankEditor {
 					appSettings = JsonConvert.DeserializeObject<ApplicationSettings>(File.ReadAllText(SETTINGS_PATH));
 				} catch (Exception ex) {
 					Trace.WriteLine(ex.Message);
+					File.AppendAllText(LOG_PATH, ex.Message);
 				}
 			}
 
@@ -67,6 +69,7 @@ namespace PD2SoundBankEditor {
 					appSettings.lastUpdateCheck = DateTime.Now;
 				} catch (Exception ex) {
 					Trace.WriteLine(ex.Message);
+					File.AppendAllText(LOG_PATH, ex.Message);
 				}
 			}
 
@@ -95,6 +98,7 @@ namespace PD2SoundBankEditor {
 				latestRelease = allReleases.FirstOrDefault(r => !r.draft && !r.prerelease);
 			} catch (Exception ex) {
 				Trace.WriteLine(ex.Message);
+				File.AppendAllText(LOG_PATH, ex.Message);
 			}
 			if (latestRelease == null) {
 				return;
@@ -307,16 +311,13 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void OnConvertLooseFilesClick(object sender, RoutedEventArgs e)
-		{
-			var diag = new OpenFileDialog
-			{
-				Filter = "Stream Audio File (*.stream)|*.stream|Waveform Audio File (*.wav)|*.wav",
+		private void OnConvertLooseFilesClick(object sender, RoutedEventArgs e) {
+			var diag = new OpenFileDialog {
+				Filter = "Stream audio files (*.stream)|*.stream|Wave audio files (*.wav)|*.wav",
 				Multiselect = true,
-				
+
 			};
-			if (diag.ShowDialog() != true)
-			{
+			if (diag.ShowDialog() != true) {
 				return;
 			}
 
@@ -425,15 +426,15 @@ namespace PD2SoundBankEditor {
 				Directory.CreateDirectory(savePath);
 			}
 			var n = 0;
-			var errors = 0;
+			var errors = new List<string>();
 			foreach (var info in streamDescriptions) {
-				var fileName = Path.Join(savePath, $"{info.Id}.stream");
-				var convertedFileName = Path.ChangeExtension(fileName, "wav");
+				var file = Path.Join(savePath, $"{info.Id}.stream");
+				var convertedFileName = Path.ChangeExtension(file, "wav");
 				try {
-					info.Save(fileName);
-					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
-				} catch (Exception) {
-					errors++;
+					info.Save(file);
+					StartConverterProcess($"-d \"{file}\" \"{convertedFileName}\"");
+				} catch (Exception ex) {
+					errors.Add(ex.Message);
 				}
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100));
 			}
@@ -441,9 +442,10 @@ namespace PD2SoundBankEditor {
 		}
 
 		void OnExtractStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
-			var errors = (int)e.Result;
-			if (errors > 0) {
-				MessageBox.Show($"Extraction finished with {errors} converter {(errors == 1 ? "error" : "errors")}!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+			var errors = (List<string>)e.Result;
+			if (errors.Count > 0) {
+				MessageBox.Show($"Extraction finished with {errors.Count} error(s)!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+				File.AppendAllLines(LOG_PATH, errors);
 			} else {
 				MessageBox.Show("Extraction complete!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
@@ -452,7 +454,7 @@ namespace PD2SoundBankEditor {
 		private void ReplaceStreams(object sender, DoWorkEventArgs e) {
 			var fileMappings = (Dictionary<string, StreamInfo>)e.Argument;
 			var n = 0;
-			var errors = 0;
+			var errors = new List<string>();
 			if (!Directory.Exists(TEMPORARY_PATH)) {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
@@ -463,8 +465,8 @@ namespace PD2SoundBankEditor {
 				var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
 				try {
 					StartConverterProcess($"-e \"{file}\" \"{fileName}\"");
-				} catch (Exception) {
-					errors++;
+				} catch (Exception ex) {
+					errors.Add(ex.Message);
 				}
 				targetStreamInfo.Data = File.ReadAllBytes(fileName);
 				targetStreamInfo.ReplacementFile = fileNameNoExt + ".wav";
@@ -479,9 +481,10 @@ namespace PD2SoundBankEditor {
 		}
 
 		void OnReplaceStreamsFinished(object sender, RunWorkerCompletedEventArgs e) {
-			var errors = (int)e.Result;
-			if (errors > 0) {
-				MessageBox.Show($"Sound replacement finished with {errors} errors!", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+			var errors = (List<string>)e.Result;
+			if (errors.Count > 0) {
+				MessageBox.Show($"Sound replacement finished with {errors.Count} error(s)!", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+				File.AppendAllLines(LOG_PATH, errors);
 			} else {
 				MessageBox.Show($"Sound replacement finished successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
@@ -490,39 +493,31 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void ConvertLooseFiles(object sender, DoWorkEventArgs e)
-		{
+		private void ConvertLooseFiles(object sender, DoWorkEventArgs e) {
 			var files = (string[])e.Argument;
 			var n = 0;
-			var errors = 0;
-			foreach (var file in files)
-			{
+			var errors = new List<string>();
+			foreach (var file in files) {
 				var fileExt = Path.GetExtension(file);
 				var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
 				var fileDir = Path.GetDirectoryName(file);
 				var fileName = Path.Combine(fileDir, fileNameNoExt + (fileExt == ".wav" ? ".stream" : ".wav"));
-				try
-				{
+				try {
 					StartConverterProcess($"-{(fileExt == ".wav" ? "e" : "d")} \"{file}\" \"{fileName}\"");
-				}
-				catch (Exception)
-				{
-					errors++;
+				} catch (Exception ex) {
+					errors.Add(ex.Message);
 				}
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)files.Length * 100));
 			}
 			e.Result = errors;
 		}
 
-		void OnConvertLooseFilesFinished(object sender, RunWorkerCompletedEventArgs e)
-		{
-			var errors = (int)e.Result;
-			if (errors > 0)
-			{
-				MessageBox.Show($"Conversion finished with {errors} errors!", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-			}
-			else
-			{
+		void OnConvertLooseFilesFinished(object sender, RunWorkerCompletedEventArgs e) {
+			var errors = (List<string>)e.Result;
+			if (errors.Count > 0) {
+				MessageBox.Show($"Conversion finished with {errors.Count} error(s)!", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+				File.AppendAllLines(LOG_PATH, errors);
+			} else {
 				MessageBox.Show($"Conversion finished successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
 		}
