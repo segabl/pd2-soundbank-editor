@@ -307,6 +307,22 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
+		private void OnConvertLooseFilesClick(object sender, RoutedEventArgs e)
+		{
+			var diag = new OpenFileDialog
+			{
+				Filter = "Stream Audio File (*.stream)|*.stream|Waveform Audio File (*.wav)|*.wav",
+				Multiselect = true,
+				
+			};
+			if (diag.ShowDialog() != true)
+			{
+				return;
+			}
+
+			DoGenericProcessing(true, ConvertLooseFiles, OnConvertLooseFilesFinished, diag.FileNames);
+		}
+
 		private void OnDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
 			replaceSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
 			extractSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
@@ -471,6 +487,43 @@ namespace PD2SoundBankEditor {
 			}
 			if (soundBank.IsDirty) {
 				Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
+			}
+		}
+
+		private void ConvertLooseFiles(object sender, DoWorkEventArgs e)
+		{
+			var files = (string[])e.Argument;
+			var n = 0;
+			var errors = 0;
+			foreach (var file in files)
+			{
+				var fileExt = Path.GetExtension(file);
+				var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
+				var fileDir = Path.GetDirectoryName(file);
+				var fileName = Path.Combine(fileDir, fileNameNoExt + (fileExt == ".wav" ? ".stream" : ".wav"));
+				try
+				{
+					StartConverterProcess($"-{(fileExt == ".wav" ? "e" : "d")} \"{file}\" \"{fileName}\"");
+				}
+				catch (Exception)
+				{
+					errors++;
+				}
+				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)files.Length * 100));
+			}
+			e.Result = errors;
+		}
+
+		void OnConvertLooseFilesFinished(object sender, RunWorkerCompletedEventArgs e)
+		{
+			var errors = (int)e.Result;
+			if (errors > 0)
+			{
+				MessageBox.Show($"Conversion finished with {errors} errors!", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+			}
+			else
+			{
+				MessageBox.Show($"Conversion finished successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
 		}
 

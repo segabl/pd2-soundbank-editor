@@ -36,7 +36,7 @@
                     <MenuItem Header="_Save" Command="Save"/>
                     <MenuItem Header="Save _as..." Command="SaveAs"/>
                     <Separator />
-                    <MenuItem Header="Recent _Files" Name="recentFilesList">
+                    <MenuItem Header="Recent _files" Name="recentFilesList">
                         <MenuItem.ItemContainerStyle>
                             <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
                                 <Setter Property="Header" Value="{Binding}"/>
@@ -47,8 +47,9 @@
                     <Separator />
                     <MenuItem Header="_Exit" Click="OnExitButtonClick"/>
                 </MenuItem>
-                <!--<MenuItem Header="_Tools">
-                </MenuItem>-->
+                <MenuItem Header="_Tools">
+                    <MenuItem Header="_Convert loose files..." Click="OnConvertLooseFilesClick"/>
+                </MenuItem>
                 <MenuItem Header="_Help">
                     <MenuItem Header="_Suppress playback errors" IsCheckable="True" IsChecked="{Binding SuppressErrorsEnabled, Mode=TwoWay}"/>
                     <MenuItem Header="Check for _updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
