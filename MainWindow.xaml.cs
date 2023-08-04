@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Timers;
@@ -15,6 +16,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using static System.Net.Mime.MediaTypeNames;
 using MessageBox = AdonisUI.Controls.MessageBox;
 using MessageBoxButton = AdonisUI.Controls.MessageBoxButton;
 using MessageBoxImage = AdonisUI.Controls.MessageBoxImage;
@@ -38,9 +40,11 @@ namespace PD2SoundBankEditor {
 		private bool converterAvailable;
 		private CollectionViewSource soundBankViewSource = new CollectionViewSource();
 		private Timer autosaveNotesTimer;
+		private Regex viewFilterRegex = null;
 
 		public bool UpdateCheckEnabled { get => appSettings.checkForUpdates; set => appSettings.checkForUpdates = value; }
 		public bool SuppressErrorsEnabled { get => appSettings.suppressErrors; set => appSettings.suppressErrors = value; }
+		public bool HideUnreferencedEnabled { get => appSettings.hideUnreferenced; set => appSettings.hideUnreferenced = value; }
 
 		public MainWindow() {
 			InitializeComponent();
@@ -115,7 +119,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void CommandSaveCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
-			e.CanExecute = soundBank != null && soundBank.IsDirty && soundBank.StreamInfos.Count > 0;
+			e.CanExecute = soundBank != null && soundBank.IsDirty;
 		}
 
 		private void CommandSaveExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) {
@@ -123,7 +127,7 @@ namespace PD2SoundBankEditor {
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 		}
 		private void CommandSaveAsCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
-			e.CanExecute = soundBank != null && soundBank.StreamInfos.Count > 0;
+			e.CanExecute = soundBank != null;
 		}
 
 		private void CommandSaveAsExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) {
@@ -216,7 +220,7 @@ namespace PD2SoundBankEditor {
 					notfound.Add(fileNameNoExt + ".wav");
 					continue;
 				}
-				var targetStreamInfo = soundBank.StreamInfos.Find(info => info.Id == targetStreamId);
+				var targetStreamInfo = soundBank.StreamInfos.FirstOrDefault(info => info.Id == targetStreamId);
 				if (targetStreamInfo == null) {
 					notfound.Add(fileNameNoExt + ".wav");
 					continue;
@@ -234,21 +238,20 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void OnFilterTextBoxChanged(object sender, RoutedEventArgs e) {
-			var text = (sender as TextBox).Text;
+		private void OnFilterChanged(object sender, RoutedEventArgs e) {
 			var view = soundBankViewSource.View;
-			if (text.Length > 0) {
-				try {
-					var rx = new Regex(text, RegexOptions.Compiled);
-					view.Filter = new Predicate<object>(info => rx.Match((info as StreamInfo).Note).Success || rx.Match((info as StreamInfo).Id.ToString()).Success);
-				} catch (Exception) {
-					view.Filter = new Predicate<object>(info => (info as StreamInfo).Note.Contains(text) || (info as StreamInfo).Id.ToString().Contains(text));
-				}
-			} else {
-				view.Filter = null;
+			if (view == null || filterTextBox == null) {
+				return;
 			}
-			dataGrid.ItemsSource = view;
-			dataGrid.DataContext = view;
+
+			viewFilterRegex = null;
+			if (filterTextBox.Text.Length > 0) {
+				try {
+					viewFilterRegex = new Regex(filterTextBox.Text, RegexOptions.Compiled);
+				} catch (Exception) { }
+			}
+
+			view.Refresh();
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
@@ -395,6 +398,18 @@ namespace PD2SoundBankEditor {
 			}
 
 			soundBankViewSource.Source = soundBank.StreamInfos;
+			soundBankViewSource.View.Filter = new Predicate<object>(info => {
+				if (HideUnreferencedEnabled && !(info as StreamInfo).HasReferences) {
+					return false;
+				} else if (viewFilterRegex == null) {
+					return (info as StreamInfo).Note.Contains(filterTextBox.Text) || (info as StreamInfo).Id.ToString().Contains(filterTextBox.Text);
+				} else {
+					return viewFilterRegex.Match((info as StreamInfo).Note).Success || viewFilterRegex.Match((info as StreamInfo).Id.ToString()).Success;
+				}
+			});
+
+			dataGrid.ItemsSource = soundBankViewSource.View;
+			dataGrid.DataContext = soundBankViewSource.View;
 
 			if (appSettings.recentlyOpenedFiles.Contains(soundBank.FilePath)) {
 				appSettings.recentlyOpenedFiles.Remove(soundBank.FilePath);
@@ -408,13 +423,11 @@ namespace PD2SoundBankEditor {
 
 			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
 
-			var containsEmedded = soundBank.StreamInfos.Count > 0;
-			OnFilterTextBoxChanged(filterTextBox, null);
-			extractAllButton.IsEnabled = converterAvailable && containsEmedded;
-			replaceByNamesButton.IsEnabled = converterAvailable && containsEmedded;
-			filterTextBox.IsEnabled = containsEmedded;
-			if (!containsEmedded) {
-				MessageBox.Show($"This soundbank does not contain any embedded streams.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+			extractAllButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
+			replaceByNamesButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
+
+			if (!soundBank.StreamInfos.Any(info => info.HasReferences)) {
+				MessageBox.Show($"This soundbank does not contain any referenced embedded streams. Unreferenced embedded data is usually garbage data.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 		}
 

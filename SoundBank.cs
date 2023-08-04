@@ -1,67 +1,12 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 
 namespace PD2SoundBankEditor {
-
-	// Helper Class containing information about embedded streams
-	public class StreamInfo : INotifyPropertyChanged {
-
-		private byte[] data;
-		private string replacementFile;
-
-		public event PropertyChangedEventHandler PropertyChanged;
-
-		public SoundBank SoundBank { get; protected set; }
-		public uint Id { get; private set; }
-		public int Offset { get; set; }
-		public byte[] Data {
-			get => data;
-			set {
-				data = value;
-				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Data"));
-				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Size"));
-			}
-		}
-		public double Size { get => data.Length / 1024f; }
-		public string ReplacementFile {
-			get => replacementFile;
-			set {
-				replacementFile = value;
-				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("ReplacementFile"));
-			}
-		}
-
-		public string Note {
-			get => SoundBank.StreamNotes.TryGetValue(Id, out var n) ? n : "";
-			set {
-				if (value == "")
-					SoundBank.StreamNotes.Remove(Id);
-				else
-					SoundBank.StreamNotes[Id] = value;
-				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Note"));
-			}
-		}
-
-		public StreamInfo(SoundBank soundBank, uint id, int offset, int length) {
-			SoundBank = soundBank;
-			Id = id;
-			Offset = offset;
-			Data = new byte[length];
-		}
-
-		public void Save(string file) {
-			using var writer = new BinaryWriter(new FileStream(file, FileMode.Create));
-			writer.Write(data);
-		}
-	}
-
 	public class SoundBank {
-		// A soundbank contains multiple data sections, see http://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
-
 		// Base Section
 		public class SectionBase {
 			public static SectionBase Read(SoundBank soundBank, BinaryReader reader) {
@@ -109,9 +54,9 @@ namespace PD2SoundBankEditor {
 			protected override void Read(BinaryReader reader, int amount) {
 				for (var i = 0; i < amount; i += 12) {
 					var id = reader.ReadUInt32();
-					var offset = reader.ReadInt32();
-					var length = reader.ReadInt32();
-					SoundBank.StreamInfos.Add(new StreamInfo(SoundBank, id, offset, length));
+					var offset = reader.ReadUInt32();
+					var length = reader.ReadUInt32();
+					SoundBank.StreamInfos.Add(new StreamInfo(SoundBank, id, (int)offset, (int)length));
 				}
 				if (reader.BaseStream.Position != DataOffset + amount) {
 					throw new FileFormatException("Soundbank data is malformed.");
@@ -208,22 +153,151 @@ namespace PD2SoundBankEditor {
 			// Sound object
 			public class ObjectSound : ObjectBase {
 				public StreamInfo StreamInfo { get; protected set; }
-				public bool IsEmbedded { get; protected set; }
-				public uint AudioId { get; protected set; }
+				public uint ObjectId { get; protected set; }
+				public ushort PluginType { get; protected set; }
+				public ushort PluginCompany { get; protected set; }
+				public uint StreamType { get; protected set; }
+				public uint SourceId { get; protected set; }
+				public uint FileId { get; protected set; }
+				public uint FileOffset { get; protected set; }
+				public uint FileSize { get; protected set; }
+				public byte SourceBits { get; protected set; }
+				public uint UnknownSize { get; protected set; }
+				public byte OverrideParentEffects {  get; protected set; }
+				public byte EffectBitMask { get; protected set; }
+				public List<Tuple<byte, uint>> Effects { get; protected set; } = new();
+				public uint OutputBus { get; protected set; }
+				public uint ParentObject { get; protected set; }
+				public byte OverrideParentPriority { get; protected set; }
+				public byte PriorityDistanceFactorEnabled { get; protected set; }
+				public List<Tuple<byte, float>> Parameters { get; protected set; } = new();
+				public byte[] Unhandled { get; protected set; }
 
-				public ObjectSound(SectionHIRC section, byte type, BinaryReader reader) : base(section, type, reader) {
-					IsEmbedded = BitConverter.ToUInt32(Data, 8) == 0;
-					AudioId = BitConverter.ToUInt32(Data, 12);
-					StreamInfo = IsEmbedded ? Section.SoundBank.StreamInfos.Find(x => x.Id == AudioId) : null;
+				public ObjectSound(SectionHIRC section, byte type, BinaryReader reader) : base(section, type, reader) { }
+
+				protected override void Read(BinaryReader reader, int amount) {
+					var dataOffset = (int)reader.BaseStream.Position;
+
+					ObjectId = reader.ReadUInt32();
+					PluginType = reader.ReadUInt16();
+					PluginCompany = reader.ReadUInt16();
+					StreamType = reader.ReadUInt32(); // 0 = embedded, 1 = streamed, 2 = prefetch
+					SourceId = reader.ReadUInt32();
+					FileId = reader.ReadUInt32();
+
+					if (StreamType == 0) {
+						FileOffset = reader.ReadUInt32();
+						FileSize = reader.ReadUInt32();
+						StreamInfo = Section.SoundBank.StreamInfos.Find(x => x.Id == SourceId);
+						if (StreamInfo != null) {
+							StreamInfo.HasReferences = true;
+						}
+					}
+					SourceBits = reader.ReadByte(); // 0 = sfx, 1 = voice
+
+					Trace.WriteLine($"================ {SourceId} ================");
+					var audioType = StreamType switch { 0 => "embedded", 1 => "streamed", 2 => "prefetched", _ => "unknown" };
+					var soundType = SourceBits switch { 0 => "sfx", 1 => "voice", _ => "unknown" };
+					Trace.WriteLine($"plugin type: {PluginType}, audio type: {audioType}, sound type: {soundType}");
+
+					if (PluginType != 1) {
+						UnknownSize = reader.ReadUInt32(); // Unknown size field
+					}
+
+					OverrideParentEffects = reader.ReadByte();
+					var numEffects = reader.ReadByte();
+					if (numEffects > 0) {
+						Trace.WriteLine($"effects:");
+
+						EffectBitMask = reader.ReadByte();
+						for (var i = 0; i < numEffects; i++) {
+							var effectIndex = reader.ReadByte();
+							var effectId = reader.ReadUInt32();
+
+							Trace.WriteLine($"\tindex: {effectIndex}, object: {effectId}");
+
+							Effects.Add(new Tuple<byte, uint>(effectIndex, effectId));
+							reader.ReadBytes(2); // 2 zero bytes
+						}
+					}
+					OutputBus = reader.ReadUInt32();
+					ParentObject = reader.ReadUInt32();
+
+					//Trace.WriteLine($"bus: {OutputBus}, parent: {ParentObject}");
+
+					OverrideParentPriority = reader.ReadByte();
+					PriorityDistanceFactorEnabled = reader.ReadByte();
+
+					//Trace.WriteLine($"override parent priority: {OverrideParentPriority}, priority offset enabled: {PriorityOffsetEnabled}");
+
+					var numParams = reader.ReadByte();
+					var bytesLeft = amount + dataOffset - (int)reader.BaseStream.Position;
+
+					if (bytesLeft < numParams * 5) {
+						throw new FileFormatException($"Soundbank data is malformed (expected {bytesLeft} bytes left, attempted to read at least {numParams * 5})");
+					}
+
+					if (numParams > 0) {
+						Trace.WriteLine($"params:");
+
+						for (var i = 0; i < numParams; i++) {
+							var paramType = reader.ReadByte();
+							var paramValue = reader.ReadSingle();
+
+							Trace.WriteLine($"\ttype: {paramType}, value: {paramValue}");
+
+							Parameters.Add(new Tuple<byte, float>(paramType, paramValue));
+						}
+					}
+					
+					Unhandled = reader.ReadBytes(amount + dataOffset - (int)reader.BaseStream.Position); // Leftover data
 				}
-
+				
 				public override void Write(BinaryWriter writer) {
 					if (StreamInfo != null) {
-						var offset = BitConverter.GetBytes(Section.SoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + StreamInfo.Offset);
-						var length = BitConverter.GetBytes(StreamInfo.Data.Length);
-						Array.Copy(offset, 0, Data, 20, 4);
-						Array.Copy(length, 0, Data, 24, 4);
+						FileOffset = (uint)(Section.SoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + StreamInfo.Offset);
+						FileSize = (uint)StreamInfo.Data.Length;
 					}
+
+					/* TEST */
+					//Parameters.Add(new Tuple<byte, float>(2, 100));
+
+					using var dataWriter = new BinaryWriter(new MemoryStream());
+					dataWriter.Write(ObjectId);
+					dataWriter.Write(PluginType);
+					dataWriter.Write(PluginCompany);
+					dataWriter.Write(StreamType);
+					dataWriter.Write(SourceId);
+					dataWriter.Write(FileId);
+					if (StreamType == 0) {
+						dataWriter.Write(FileOffset);
+						dataWriter.Write(FileSize);
+					}
+					dataWriter.Write(SourceBits);
+					if (PluginType != 1) {
+						dataWriter.Write(UnknownSize);
+					}
+					dataWriter.Write(OverrideParentEffects);
+					dataWriter.Write((byte)Effects.Count);
+					if (Effects.Count > 0) {
+						dataWriter.Write(EffectBitMask);
+						foreach (var effect in Effects) {
+							dataWriter.Write(effect.Item1);
+							dataWriter.Write(effect.Item2);
+							dataWriter.Write((ushort)0);
+						}
+					}
+					dataWriter.Write(OutputBus);
+					dataWriter.Write(ParentObject);
+					dataWriter.Write(OverrideParentPriority);
+					dataWriter.Write(PriorityDistanceFactorEnabled);
+					dataWriter.Write((byte)Parameters.Count);
+					foreach (var param in Parameters) {
+						dataWriter.Write(param.Item1);
+						dataWriter.Write(param.Item2);
+					}
+					dataWriter.Write(Unhandled);
+					Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 					base.Write(writer);
 				}

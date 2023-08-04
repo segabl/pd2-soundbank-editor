@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace PD2SoundBankEditor {
+﻿namespace PD2SoundBankEditor {
 	public class GitHubRelease {
 		public string name;
 		public string tag_name;

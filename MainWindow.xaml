@@ -50,6 +50,9 @@
                 <MenuItem Header="_Tools">
                     <MenuItem Header="_Convert loose files..." Click="OnConvertLooseFilesClick"/>
                 </MenuItem>
+                <MenuItem Header="_View">
+                    <MenuItem Header="_Hide unreferenced files" IsCheckable="True" IsChecked="{Binding HideUnreferencedEnabled, Mode=TwoWay}" Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
+                </MenuItem>
                 <MenuItem Header="_Help">
                     <MenuItem Header="_Suppress playback errors" IsCheckable="True" IsChecked="{Binding SuppressErrorsEnabled, Mode=TwoWay}"/>
                     <MenuItem Header="Check for _updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
@@ -82,12 +85,13 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <Button Grid.Row="0" Name="extractAllButton" Content="Extract all" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
                 <Button Grid.Row="1" Name="extractSelectedButton" Content="Extract selected" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
                 <Button Grid.Row="2" Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
                 <Button Grid.Row="3" Name="replaceByNamesButton" Content="Replace by ID..." Click="OnReplaceByNamesButtonClick" IsEnabled="False" Height="24" Margin="0,0,0,0"/>
-                <TextBox Grid.Row="5" Name="filterTextBox" adonisExtensions:WatermarkExtension.Watermark="Filter" TextChanged="OnFilterTextBoxChanged" IsEnabled="False" Height="24"/>
+                <TextBox Grid.Row="5" Name="filterTextBox" adonisExtensions:WatermarkExtension.Watermark="Filter" TextChanged="OnFilterChanged" Height="24"/>
             </Grid>
         </Grid>
         <ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>
