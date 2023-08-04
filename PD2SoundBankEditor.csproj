@@ -14,6 +14,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
+    <EmbeddedResource Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
+    <None Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
+    <Page Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AdonisUI.ClassicTheme" Version="1.17.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
