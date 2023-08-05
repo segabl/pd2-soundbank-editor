@@ -11,9 +11,9 @@ namespace PD2SoundBankEditor {
 			};
 		}
 
-		public HircSection Section { get; set; }
-		public byte Type { get; set; }
-		public byte[] Data { get; set; }
+		public HircSection Section { get; protected set; }
+		public byte Type { get; protected set; }
+		public byte[] Data { get; protected set; }
 
 		public HircObject(HircSection section, byte type, BinaryReader reader) {
 			Section = section;

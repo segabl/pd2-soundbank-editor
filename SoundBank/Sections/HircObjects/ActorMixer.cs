@@ -1,7 +1,4 @@
-using System.Collections.Generic;
 using System.IO;
-using System;
-using System.Diagnostics;
 
 namespace PD2SoundBankEditor {
 	public class ActorMixer : HircObject {

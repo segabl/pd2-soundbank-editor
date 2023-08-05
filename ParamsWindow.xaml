@@ -1,0 +1,63 @@
+﻿<adonisControls:AdonisWindow x:Class="PD2SoundBankEditor.ParamsWindow"
+		xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+		xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		xmlns:adonisControls="clr-namespace:AdonisUI.Controls;assembly=AdonisUI"
+		xmlns:adonisExtensions="clr-namespace:AdonisUI.Extensions;assembly=AdonisUI"
+		mc:Ignorable="d"
+		WindowStartupLocation="CenterOwner"
+		Title="Set audio properties" Height="360" Width="480" ShowInTaskbar="False">
+	<Window.Style>
+		<Style TargetType="Window" BasedOn="{StaticResource {x:Type Window}}"/>
+	</Window.Style>
+	<Grid>
+		<Grid Name="mainGrid" Margin="8,8,8,8">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+
+			<Grid.RowDefinitions>
+				<RowDefinition Height="24"/>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="*"/>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="Auto"/>
+			</Grid.RowDefinitions>
+
+			<Label Grid.Column="0" Grid.Row="0" Content="Apply to the following sounds"/>
+			<ListBox Name="soundIdListBox"
+					 Grid.Column="0" Grid.Row="1" Grid.RowSpan="3" Margin="0,0,8,8"
+					 SelectionMode="Extended" SelectionChanged="OnSoundIdSelectionChanged">
+				<ListBox.ItemTemplate>
+					<DataTemplate>
+						<TextBlock Text="{Binding SourceId}"/>
+					</DataTemplate>
+				</ListBox.ItemTemplate>
+			</ListBox>
+			<Label Name="numItemsSelectedLabel" Grid.Column="0" Grid.Row="4" Content="100 of 100 selected" FontWeight="Normal"/>
+			<Button Grid.Column="0" Grid.Row="5" Content="Select from clipboard" Height="24" Click="OnClipboardMatchClick" Margin="0,0,8,0"/>
+
+			<Label Grid.Column="1" Grid.Row="0" Content="Volume gain"/>
+			<Grid Grid.Column="1" Grid.Row="1">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="2*"/>
+					<ColumnDefinition Width="1*"/>
+				</Grid.ColumnDefinitions>
+
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto"/>
+				</Grid.RowDefinitions>
+
+				<Slider Grid.Column="0" Name="audioLevelSlider" Maximum="24" Minimum="-96" ValueChanged="OnAudioLevelSliderChange" Margin="0,0,8,0"/>
+				<TextBox Grid.Column="1" Name="audioLevelTextBox" Text="0" MaxLength="5" PreviewTextInput="CheckAudioLevelText" TextChanged="OnAudioLevelTextChange" Height="24"/>
+			</Grid>
+			<Button Name="applyButton" Grid.Column="1" Grid.Row="4" Content="Apply" Height="24" Margin="0,0,0,8" Click="OnApplyClick" IsEnabled="False"/>
+			<Button Grid.Column="1" Grid.Row="5" Content="Cancel" Height="24" Click="OnCancelClick"/>
+		</Grid>
+		<!--<ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>-->
+	</Grid>
+</adonisControls:AdonisWindow>

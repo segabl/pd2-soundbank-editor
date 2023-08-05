@@ -6,23 +6,21 @@
     <UseWPF>true</UseWPF>
     <StartupObject></StartupObject>
     <AssemblyName>PD2SoundBankEditor</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <RollForward>Major</RollForward>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
-    <EmbeddedResource Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
-    <None Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
-    <Page Remove="SoundBank\Sections\HircObjects\HierarchyObject.cs\**" />
-  </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AdonisUI.ClassicTheme" Version="1.17.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <Content Include="Icon.ico">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <PackageReference Include="AdonisUI.ClassicTheme" Version="1.17.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
 </Project>

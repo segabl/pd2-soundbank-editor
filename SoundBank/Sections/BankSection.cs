@@ -11,7 +11,7 @@ namespace PD2SoundBankEditor {
 				"DATA" => new DataSection(soundBank, name, reader),
 				"HIRC" => new HircSection(soundBank, name, reader),
 				_ => new BankSection(soundBank, name, reader)
-			}; ; ;
+			};
 		}
 
 		public SoundBank SoundBank { get; protected set; }

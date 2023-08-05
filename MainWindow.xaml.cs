@@ -21,9 +21,6 @@ using MessageBoxImage = AdonisUI.Controls.MessageBoxImage;
 using MessageBoxResult = AdonisUI.Controls.MessageBoxResult;
 
 namespace PD2SoundBankEditor {
-	/// <summary>
-	/// Interaction logic for MainWindow.xaml
-	/// </summary>
 	public partial class MainWindow : AdonisWindow {
 		static readonly string CONVERTER_NAME = "wwise_ima_adpcm.exe";
 		static readonly string CONVERTER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
@@ -122,7 +119,7 @@ namespace PD2SoundBankEditor {
 
 		private void CommandSaveExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) {
 			soundBank.Save(soundBank.FilePath);
-			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
+			UpdateWindowTitle();
 		}
 		private void CommandSaveAsCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
 			e.CanExecute = soundBank != null;
@@ -138,7 +135,7 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 			soundBank.Save(diag.FileName);
-			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
+			UpdateWindowTitle();
 		}
 
 		private void OnOpenButtonClick(object sender, RoutedEventArgs e) {
@@ -193,7 +190,7 @@ namespace PD2SoundBankEditor {
 				}
 			}
 			soundBank.IsDirty = true;
-			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
+			UpdateWindowTitle();
 		}
 
 		private void OnReplaceByNamesButtonClick(object sender, RoutedEventArgs e) {
@@ -325,6 +322,11 @@ namespace PD2SoundBankEditor {
 			DoGenericProcessing(true, ConvertLooseFiles, OnConvertLooseFilesFinished, diag.FileNames);
 		}
 
+		private void OnSetAudioPropertiesClick(object sender, RoutedEventArgs e) {
+			var paramsWindow = new ParamsWindow(soundBank) { Owner = this };
+			paramsWindow.ShowDialog();
+		}
+
 		private void OnDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
 			replaceSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
 			extractSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
@@ -419,14 +421,19 @@ namespace PD2SoundBankEditor {
 			recentFilesList.ItemsSource = null; //too lazy for proper notify
 			recentFilesList.ItemsSource = appSettings.recentlyOpenedFiles;
 
-			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}";
+			UpdateWindowTitle();
 
 			extractAllButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
 			replaceByNamesButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
+			setAudioPropertiedMenuItem.IsEnabled = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC"))?.SoundObjects.Count > 0;
 
 			if (!soundBank.StreamInfos.Any(info => info.HasReferences)) {
 				MessageBox.Show($"This soundbank does not contain any referenced embedded streams. Unreferenced embedded data is usually garbage data.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
+		}
+
+		public void UpdateWindowTitle() {
+			Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}{(soundBank.IsDirty ? "*" : "")}";
 		}
 
 		private void ExtractStreams(object sender, DoWorkEventArgs e) {
@@ -499,9 +506,7 @@ namespace PD2SoundBankEditor {
 			} else {
 				MessageBox.Show($"Sound replacement finished successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
-			if (soundBank.IsDirty) {
-				Title = $"PD2 Soundbank Editor - {Path.GetFileName(soundBank.FilePath)}*";
-			}
+			UpdateWindowTitle();
 		}
 
 		private void ConvertLooseFiles(object sender, DoWorkEventArgs e) {

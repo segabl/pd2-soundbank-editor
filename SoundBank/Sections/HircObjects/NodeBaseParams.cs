@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Diagnostics;
+﻿using System.Collections.Generic;
 using System.IO;
 
 namespace PD2SoundBankEditor {
@@ -66,11 +63,6 @@ namespace PD2SoundBankEditor {
 		}
 
 		public void Write(BinaryWriter writer) {
-			// Test
-			//Properties1[0] = 24;
-			//Properties1[4] = 24;
-			//Properties1[8] = 24;
-
 			writer.Write(OverrideParentEffects);
 			writer.Write((byte)Effects.Count);
 			if (Effects.Count > 0) {
