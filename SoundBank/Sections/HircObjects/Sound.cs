@@ -27,18 +27,22 @@ namespace PD2SoundBankEditor {
 			SourceId = reader.ReadUInt32();
 			FileId = reader.ReadUInt32();
 
-			if (StreamType == 0) {
+			//Trace.WriteLine(ObjectId);
+
+			if (StreamType != 1) {
 				FileOffset = reader.ReadUInt32();
 				FileSize = reader.ReadUInt32();
-				var streamInfo = Section.SoundBank.StreamInfos.Find(x => x.Id == SourceId);
-				if (streamInfo != null) {
-					streamInfo.HasReferences = true;
+				if (StreamType == 0) {
+					var streamInfo = Section.SoundBank.StreamInfos.Find(x => x.Id == SourceId);
+					if (streamInfo != null) {
+						streamInfo.HasReferences = true;
+					}
 				}
 			}
 			SourceBits = reader.ReadByte(); // 0 = sfx, 1 = voice
 
 			if ((PluginId & 0xF) > 1) {
-				Trace.WriteLine($"Plugin 0x{PluginId & 0xF:X1} 0x{(PluginId & 0xFFF0) >> 4:X3}");
+				//Trace.WriteLine($"Plugin 0x{PluginId & 0xF:X1} 0x{(PluginId & 0xFFF0) >> 4:X3}");
 				UnknownSize = reader.ReadUInt32(); // Unknown size field
 			}
 
