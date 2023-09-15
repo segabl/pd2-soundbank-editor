@@ -57,11 +57,13 @@ namespace PD2SoundBankEditor {
 			dataWriter.Write(StreamType);
 			dataWriter.Write(SourceId);
 			dataWriter.Write(FileId);
-			if (StreamType == 0) {
-				var streamInfo = Section.SoundBank.StreamInfos.Find(x => x.Id == SourceId);
-				if (streamInfo != null) {
-					FileOffset = (uint)(Section.SoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + streamInfo.Offset);
-					FileSize = (uint)streamInfo.Data.Length;
+			if (StreamType != 1) {
+				if (StreamType == 0) {
+					var streamInfo = Section.SoundBank.StreamInfos.Find(x => x.Id == SourceId);
+					if (streamInfo != null) {
+						FileOffset = (uint)(Section.SoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + streamInfo.Offset);
+						FileSize = (uint)streamInfo.Data.Length;
+					}
 				}
 				dataWriter.Write(FileOffset);
 				dataWriter.Write(FileSize);
