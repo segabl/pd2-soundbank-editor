@@ -552,16 +552,21 @@ namespace PD2SoundBankEditor {
 			}
 		}
 		private int CompareVersionStrings(string v1, string v2) {
-			var nums1 = v1.Split(".").Select(int.Parse).ToArray();
-			var nums2 = v2.Split(".").Select(int.Parse).ToArray();
-			for (var i = 0; i < nums1.Length && i < nums2.Length; i++) {
-				if (nums1[i] == nums2[i]) {
-					continue;
-				} else {
-					return Math.Sign(nums1[i] - nums2[i]);
+			try {
+				var nums1 = v1.Split(".").Select(int.Parse).ToArray();
+				var nums2 = v2.Split(".").Select(int.Parse).ToArray();
+				for (var i = 0; i < nums1.Length && i < nums2.Length; i++) {
+					if (nums1[i] == nums2[i]) {
+						continue;
+					} else {
+						return Math.Sign(nums1[i] - nums2[i]);
+					}
 				}
+				return Math.Sign(nums1.Length - nums2.Length);
+			} catch (Exception ex) {
+				File.AppendAllText(LOG_PATH, ex.Message);
+				return 0;
 			}
-			return Math.Sign(nums1.Length - nums2.Length);
 		}
 	}
 }
