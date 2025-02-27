@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 
 namespace PD2SoundBankEditor {
@@ -5,7 +6,9 @@ namespace PD2SoundBankEditor {
 		public uint ObjectId;
 		public NodeBaseParams NodeBaseParams;
 
-		public ActorMixer(HircSection section, byte type, BinaryReader reader) : base(section, type, reader) { }
+		public ActorMixer(HircSection section, byte type, BinaryReader reader) : base(section, type, reader) {
+			section.ActorMixerObjects.Add(this);
+		}
 
 		public override void Read(BinaryReader reader, int amount) {
 			var dataOffset = (int)reader.BaseStream.Position;

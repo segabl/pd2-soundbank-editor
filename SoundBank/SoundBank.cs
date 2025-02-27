@@ -5,6 +5,7 @@ using System.IO;
 
 namespace PD2SoundBankEditor {
 	public class SoundBank {
+		public uint GeneratorVersion { get; set; }
 		public uint Id { get; set; }
 		public List<BankSection> Sections { get; private set; } = new List<BankSection>();
 		public bool IsDirty { get; set; }

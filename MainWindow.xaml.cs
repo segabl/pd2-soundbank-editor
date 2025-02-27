@@ -327,6 +327,23 @@ namespace PD2SoundBankEditor {
 			paramsWindow.ShowDialog();
 		}
 
+		private void OnIncreaseSoundLimitClick(object sender, RoutedEventArgs e) {
+			var changed = false;
+			foreach (ActorMixer actorMixer in ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC")).ActorMixerObjects) {
+				if (actorMixer.NodeBaseParams.MaxNumInstance > 0 && actorMixer.NodeBaseParams.MaxNumInstance < 20) {
+					actorMixer.NodeBaseParams.MaxNumInstance = 20;
+					changed = true;
+				}
+			}
+			if (changed) {
+				MessageBox.Show($"Sound limits increased.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+				soundBank.IsDirty = true;
+				UpdateWindowTitle();
+			} else {
+				MessageBox.Show($"No sound limits needed to be changed.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+			}
+		}
+
 		private void OnDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
 			replaceSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
 			extractSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
@@ -425,7 +442,8 @@ namespace PD2SoundBankEditor {
 
 			extractAllButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
 			replaceByNamesButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
-			setAudioPropertiedMenuItem.IsEnabled = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC"))?.SoundObjects.Count > 0;
+			setAudioPropertiesMenuItem.IsEnabled = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC"))?.SoundObjects.Count > 0;
+			increaseSoundLimitMenuItem.IsEnabled = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC"))?.ActorMixerObjects.Count > 0;
 
 			if (!soundBank.StreamInfos.Any(info => info.HasReferences)) {
 				MessageBox.Show($"This soundbank does not contain any referenced embedded streams. Unreferenced embedded data is usually garbage data.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);

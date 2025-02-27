@@ -27,8 +27,6 @@ namespace PD2SoundBankEditor {
 			SourceId = reader.ReadUInt32();
 			FileId = reader.ReadUInt32();
 
-			//Trace.WriteLine(ObjectId);
-
 			if (StreamType != 1) {
 				FileOffset = reader.ReadUInt32();
 				FileSize = reader.ReadUInt32();
@@ -45,6 +43,8 @@ namespace PD2SoundBankEditor {
 				//Trace.WriteLine($"Plugin 0x{PluginId & 0xF:X1} 0x{(PluginId & 0xFFF0) >> 4:X3}");
 				UnknownSize = reader.ReadUInt32(); // Unknown size field
 			}
+
+			//Trace.WriteLine($"{ObjectId} {PluginId} {StreamType}");
 
 			NodeBaseParams = new NodeBaseParams(reader, amount + dataOffset);
 		}

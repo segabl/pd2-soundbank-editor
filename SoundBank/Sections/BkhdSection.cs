@@ -8,6 +8,7 @@ namespace PD2SoundBankEditor {
 		protected override void Read(BinaryReader reader, int amount) {
 			base.Read(reader, amount);
 
+			SoundBank.GeneratorVersion = BitConverter.ToUInt32(Data, 0);
 			SoundBank.Id = BitConverter.ToUInt32(Data, 4);
 		}
 

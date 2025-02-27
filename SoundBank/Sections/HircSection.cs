@@ -4,6 +4,7 @@ using System.IO;
 namespace PD2SoundBankEditor {
 	public class HircSection : BankSection {
 		public List<Sound> SoundObjects { get; private set; } = new();
+		public List<ActorMixer> ActorMixerObjects { get; private set; } = new();
 
 		public List<HircObject> Objects { get; protected set; } = new List<HircObject>();
 

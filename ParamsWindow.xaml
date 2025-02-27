@@ -54,10 +54,10 @@
 
 				<Slider Grid.Column="0" Name="audioLevelSlider" Maximum="24" Minimum="-96" ValueChanged="OnAudioLevelSliderChange" Margin="0,0,8,0"/>
 				<TextBox Grid.Column="1" Name="audioLevelTextBox" Text="0" MaxLength="5" PreviewTextInput="CheckAudioLevelText" TextChanged="OnAudioLevelTextChange" Height="24"/>
-			</Grid>
-			<Button Name="applyButton" Grid.Column="1" Grid.Row="4" Content="Apply" Height="24" Margin="0,0,0,8" Click="OnApplyClick" IsEnabled="False"/>
+            </Grid>
+            <Button Name="applyButton" Grid.Column="1" Grid.Row="4" Content="Apply" Height="24" Margin="0,0,0,8" Click="OnApplyClick" IsEnabled="False"/>
 			<Button Grid.Column="1" Grid.Row="5" Content="Cancel" Height="24" Click="OnCancelClick"/>
-		</Grid>
+        </Grid>
 		<!--<ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>-->
 	</Grid>
 </adonisControls:AdonisWindow>

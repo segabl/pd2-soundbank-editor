@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace PD2SoundBankEditor {
@@ -13,6 +14,13 @@ namespace PD2SoundBankEditor {
 		public byte PriorityDistanceFactorEnabled;
 		public SortedDictionary<byte, float> Properties1 = new();
 		public SortedDictionary<byte, float> Properties2 = new();
+		public byte ByVector;
+		public byte[] PositioningParams;
+		public byte[] AuxParams;
+		public byte VirtualQueueBehaviour;
+		public byte KillNewest;
+		public byte UseVirtualBehavior;
+		public UInt16 MaxNumInstance;
 		public byte[] Unhandled;
 
 		public NodeBaseParams(BinaryReader reader, int endPos) {
@@ -59,6 +67,18 @@ namespace PD2SoundBankEditor {
 				}
 			}
 
+			ByVector = reader.ReadByte();
+			if (ByVector > 0) {
+				PositioningParams = reader.ReadBytes(12);
+			}
+
+			AuxParams = reader.ReadBytes(4);
+
+			VirtualQueueBehaviour = reader.ReadByte();
+			KillNewest = reader.ReadByte();
+			UseVirtualBehavior = reader.ReadByte();
+			MaxNumInstance = reader.ReadUInt16();
+
 			Unhandled = reader.ReadBytes(endPos - (int)reader.BaseStream.Position); // Leftover data
 		}
 
@@ -91,6 +111,15 @@ namespace PD2SoundBankEditor {
 			foreach (var (_, value) in Properties2) {
 				writer.Write(value);
 			}
+			writer.Write(ByVector);
+			if (ByVector > 0) {
+				writer.Write(PositioningParams);
+			}
+			writer.Write(AuxParams);
+			writer.Write(VirtualQueueBehaviour);
+			writer.Write(KillNewest);
+			writer.Write(UseVirtualBehavior);
+			writer.Write(MaxNumInstance);
 			writer.Write(Unhandled);
 		}
 	}

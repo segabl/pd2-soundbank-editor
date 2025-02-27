@@ -46,8 +46,9 @@
 				</MenuItem>
 				<MenuItem Header="_Tools">
 					<MenuItem Header="_Convert loose files..." Click="OnConvertLooseFilesClick"/>
-					<MenuItem Name="setAudioPropertiedMenuItem" Header="_Set audio properties..." Click="OnSetAudioPropertiesClick" IsEnabled="False"/>
-				</MenuItem>
+                    <MenuItem Name="setAudioPropertiesMenuItem" Header="_Set audio properties..." Click="OnSetAudioPropertiesClick" IsEnabled="False"/>
+                    <MenuItem Name="increaseSoundLimitMenuItem" Header="_Increase sound limit" Click="OnIncreaseSoundLimitClick" IsEnabled="False"/>
+                </MenuItem>
 				<MenuItem Header="_View">
 					<MenuItem Header="_Hide unreferenced files" IsCheckable="True" IsChecked="{Binding HideUnreferencedEnabled, Mode=TwoWay}" Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
 				</MenuItem>
