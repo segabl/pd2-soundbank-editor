@@ -20,7 +20,7 @@ namespace PD2SoundBankEditor {
 			InitializeComponent();
 
 			this.soundBank = soundBank;
-			soundObjects = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC")).SoundObjects;
+			soundObjects = soundBank.GetSection<HircSection>().GetObjects<Sound>();
 
 			soundIdListBox.ItemsSource = soundObjects;
 			soundIdListBox.SelectAll();

@@ -28,12 +28,12 @@ namespace PD2SoundBankEditor {
 		static readonly string TEMPORARY_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
 		static readonly string LOG_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "log.txt");
 
-		private ApplicationSettings appSettings = new ApplicationSettings();
-		private MediaPlayer mediaPlayer = new MediaPlayer();
+		private ApplicationSettings appSettings = new();
+		private MediaPlayer mediaPlayer = new();
 		private SoundBank soundBank;
 		private Button playingButton;
 		private bool converterAvailable;
-		private CollectionViewSource soundBankViewSource = new CollectionViewSource();
+		private CollectionViewSource soundBankViewSource = new();
 		private Timer autosaveNotesTimer;
 		private Regex viewFilterRegex = null;
 
@@ -329,7 +329,7 @@ namespace PD2SoundBankEditor {
 
 		private void OnIncreaseSoundLimitClick(object sender, RoutedEventArgs e) {
 			var changed = false;
-			foreach (ActorMixer actorMixer in ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC")).ActorMixerObjects) {
+			foreach (ActorMixer actorMixer in soundBank.GetSection<HircSection>().GetObjects<ActorMixer>()) {
 				if (actorMixer.NodeBaseParams.MaxNumInstance > 0 && actorMixer.NodeBaseParams.MaxNumInstance < 20) {
 					actorMixer.NodeBaseParams.MaxNumInstance = 20;
 					changed = true;
@@ -374,7 +374,7 @@ namespace PD2SoundBankEditor {
 
 		public void DoGenericProcessing(bool reportProgress, Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
 			mainGrid.IsEnabled = false;
-			BackgroundWorker worker = new BackgroundWorker {
+			BackgroundWorker worker = new() {
 				WorkerReportsProgress = reportProgress
 			};
 			worker.DoWork += (sender, e) => work(sender, e);
@@ -442,8 +442,8 @@ namespace PD2SoundBankEditor {
 
 			extractAllButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
 			replaceByNamesButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
-			setAudioPropertiesMenuItem.IsEnabled = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC"))?.SoundObjects.Count > 0;
-			increaseSoundLimitMenuItem.IsEnabled = ((HircSection)soundBank.Sections.Find(x => x.Name == "HIRC"))?.ActorMixerObjects.Count > 0;
+			setAudioPropertiesMenuItem.IsEnabled = soundBank.GetSection<HircSection>()?.GetObjects<Sound>().Any() ?? false;
+			increaseSoundLimitMenuItem.IsEnabled = soundBank.GetSection<HircSection>()?.GetObjects<ActorMixer>().Any() ?? false;
 
 			if (!soundBank.StreamInfos.Any(info => info.HasReferences)) {
 				MessageBox.Show($"This soundbank does not contain any referenced embedded streams. Unreferenced embedded data is usually garbage data.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);

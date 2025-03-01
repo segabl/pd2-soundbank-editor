@@ -1,12 +1,11 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace PD2SoundBankEditor {
 	public class HircSection : BankSection {
-		public List<Sound> SoundObjects { get; private set; } = new();
-		public List<ActorMixer> ActorMixerObjects { get; private set; } = new();
 
-		public List<HircObject> Objects { get; protected set; } = new List<HircObject>();
+		public List<HircObject> Objects { get; protected set; } = new ();
 
 		public HircSection(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
@@ -30,6 +29,10 @@ namespace PD2SoundBankEditor {
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);
+		}
+
+		public IEnumerable<T> GetObjects<T>() where T : HircObject {
+			return Objects.OfType<T>();
 		}
 	}
 }

@@ -14,9 +14,7 @@ namespace PD2SoundBankEditor {
 		public uint UnknownSize { get; protected set; }
 		public NodeBaseParams NodeBaseParams { get; protected set; }
 
-		public Sound(HircSection section, byte type, BinaryReader reader) : base(section, type, reader) {
-			section.SoundObjects.Add(this);
-		}
+		public Sound(HircSection section, byte type, BinaryReader reader) : base(section, type, reader) { }
 
 		public override void Read(BinaryReader reader, int amount) {
 			var dataOffset = (int)reader.BaseStream.Position;
@@ -61,7 +59,7 @@ namespace PD2SoundBankEditor {
 				if (StreamType == 0) {
 					var streamInfo = Section.SoundBank.StreamInfos.Find(x => x.Id == SourceId);
 					if (streamInfo != null) {
-						FileOffset = (uint)(Section.SoundBank.Sections.Find(x => x.Name == "DATA").DataOffset + streamInfo.Offset);
+						FileOffset = (uint)(Section.SoundBank.GetSection<DataSection>().DataOffset + streamInfo.Offset);
 						FileSize = (uint)streamInfo.Data.Length;
 					}
 				}

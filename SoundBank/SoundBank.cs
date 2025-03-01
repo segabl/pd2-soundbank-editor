@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace PD2SoundBankEditor {
 	public class SoundBank {
@@ -55,6 +56,10 @@ namespace PD2SoundBankEditor {
 				Directory.CreateDirectory(notesDir);
 			var notesFile = Path.Join(notesDir, Path.GetFileName(FilePath) + ".json");
 			File.WriteAllText(notesFile, JsonConvert.SerializeObject(StreamNotes));
+		}
+
+		public T GetSection<T>() where T : BankSection {
+			return Sections.OfType<T>().FirstOrDefault();
 		}
 	}
 }
