@@ -33,7 +33,8 @@ namespace PD2SoundBankEditor {
 		private SoundBank soundBank;
 		private Button playingButton;
 		private bool converterAvailable;
-		private CollectionViewSource soundBankViewSource = new();
+		private CollectionViewSource embeddedSoundsViewSource = new();
+		private CollectionViewSource soundbankObjectsViewSource = new();
 		private Timer autosaveNotesTimer;
 		private Regex viewFilterRegex = null;
 
@@ -84,6 +85,13 @@ namespace PD2SoundBankEditor {
 			};
 
 			mediaPlayer.MediaEnded += SetPlayButtonState;
+
+			Width = appSettings.windowWidth;
+			Height = appSettings.windowHeight;
+			var screenW = SystemParameters.PrimaryScreenWidth;
+			var screenH = SystemParameters.PrimaryScreenHeight;
+			Left = appSettings.windowLeft >= 0 ? Math.Clamp(appSettings.windowLeft, -Width + 50, screenW - 50) : screenW / 2 - Width / 2;
+			Top = appSettings.windowTop >= 0 ? Math.Clamp(appSettings.windowTop, -Height + 50, screenH - 50) : screenH / 2 - Height / 2;
 		}
 
 		private void OnReleaseDataFetched(object sender, DownloadStringCompletedEventArgs e) {
@@ -159,7 +167,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnExtractButtonClick(object sender, RoutedEventArgs e) {
-			DoGenericProcessing(true, ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : dataGrid.SelectedItems.Cast<StreamInfo>());
+			DoGenericProcessing(true, ExtractStreams, OnExtractStreamsFinished, ((Button)sender) == extractAllButton ? soundBank.StreamInfos : soundDataGrid.SelectedItems.Cast<StreamInfo>());
 		}
 
 		private void OnReplaceButtonClick(object sender, RoutedEventArgs e) {
@@ -181,7 +189,7 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 			var data = File.ReadAllBytes(fileName);
-			foreach (var info in dataGrid.SelectedItems.Cast<StreamInfo>()) {
+			foreach (var info in soundDataGrid.SelectedItems.Cast<StreamInfo>()) {
 				info.Data = data;
 				info.ReplacementFile = fileNameNoExt + ".wav";
 				var tmpFile = Path.Combine(TEMPORARY_PATH, info.Id + ".wav");
@@ -233,8 +241,11 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
+		private void OnEditParametersButtonClick(object sender, RoutedEventArgs e) {
+		}
+
 		private void OnFilterChanged(object sender, RoutedEventArgs e) {
-			var view = soundBankViewSource.View;
+			var view = embeddedSoundsViewSource.View;
 			if (view == null || filterTextBox == null) {
 				return;
 			}
@@ -244,6 +255,15 @@ namespace PD2SoundBankEditor {
 				try {
 					viewFilterRegex = new Regex(filterTextBox.Text, RegexOptions.Compiled);
 				} catch (Exception) { }
+			}
+
+			view.Refresh();
+		}
+
+		private void OnTypeFilterChanged(object sender, RoutedEventArgs e) {
+			var view = soundbankObjectsViewSource.View;
+			if (view == null || typeFilterComboBox == null) {
+				return;
 			}
 
 			view.Refresh();
@@ -344,9 +364,49 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void OnDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
-			replaceSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
-			extractSelectedButton.IsEnabled = converterAvailable && dataGrid.SelectedItems.Count > 0;
+		private void OnSoundDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
+			replaceSelectedButton.IsEnabled = converterAvailable && soundDataGrid.SelectedItems.Count > 0;
+			extractSelectedButton.IsEnabled = converterAvailable && soundDataGrid.SelectedItems.Count > 0;
+			numSoundsSelectedLabel.Content = $"{soundDataGrid.SelectedItems.Count} of {soundDataGrid.Items.Count} selected";
+		}
+
+		private static object CreateProperty(string name, List<string> values) {
+			return new { Name = name, Value = values.Count > 1 ? "<multiple>" : values[0] };
+		}
+
+		private void OnObjectDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
+			selectedObjectDataGrid.ItemsSource = null;
+
+			numObjectsSelectedLabel.Content = $"{objectDataGrid.SelectedItems.Count} of {objectDataGrid.Items.Count} selected";
+
+			if (objectDataGrid.SelectedItems.Count == 0) {
+				return;
+			}
+
+			var selectedItems = objectDataGrid.SelectedItems.Cast<HircObject>().ToList();
+			var ids = selectedItems.Select(x => x.Id.ToString()).Distinct().ToList();
+			var types = selectedItems.Select(x => x.TypeName).Distinct().ToList();
+			var properties = new List<object>() {
+				CreateProperty("ID", ids),
+				CreateProperty("Type", types)
+			};
+
+			if (types.Count == 1 && selectedItems[0] is Sound) {
+				var castItems = selectedItems.Cast<Sound>();
+				properties.Add(CreateProperty("Sound Type", castItems.Select(x => x.SoundType).Distinct().ToList()));
+				properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
+			}
+
+			if (selectedItems.All(x => x.NodeBaseParams != null)) {
+				var volumes = selectedItems.Select(x => {
+					return x.NodeBaseParams.Properties1.TryGetValue(0, out var val) ? val.ToString() : "";
+				}).Distinct().ToList();
+				var maxInstances = selectedItems.Select(x => x.NodeBaseParams.MaxNumInstance.ToString()).Distinct().ToList();
+				properties.Add(CreateProperty("Volume", volumes));
+				properties.Add(CreateProperty("Max Instances", maxInstances));
+			}
+
+			selectedObjectDataGrid.ItemsSource = properties;
 		}
 
 		private void OnWindowClosed(object sender, EventArgs e) {
@@ -354,6 +414,10 @@ namespace PD2SoundBankEditor {
 			if (Directory.Exists(TEMPORARY_PATH)) {
 				Directory.Delete(TEMPORARY_PATH, true);
 			}
+			appSettings.windowWidth = Width;
+			appSettings.windowHeight = Height;
+			appSettings.windowLeft = Left;
+			appSettings.windowTop = Top;
 			File.WriteAllText(SETTINGS_PATH, JsonConvert.SerializeObject(appSettings));
 		}
 
@@ -414,8 +478,8 @@ namespace PD2SoundBankEditor {
 				return;
 			}
 
-			soundBankViewSource.Source = soundBank.StreamInfos;
-			soundBankViewSource.View.Filter = new Predicate<object>(info => {
+			embeddedSoundsViewSource.Source = soundBank.StreamInfos;
+			embeddedSoundsViewSource.View.Filter = new Predicate<object>(info => {
 				if (HideUnreferencedEnabled && !(info as StreamInfo).HasReferences) {
 					return false;
 				} else if (viewFilterRegex == null) {
@@ -425,8 +489,21 @@ namespace PD2SoundBankEditor {
 				}
 			});
 
-			dataGrid.ItemsSource = soundBankViewSource.View;
-			dataGrid.DataContext = soundBankViewSource.View;
+			soundDataGrid.ItemsSource = embeddedSoundsViewSource.View;
+			soundDataGrid.DataContext = embeddedSoundsViewSource.View;
+
+			soundbankObjectsViewSource.Source = soundBank.GetSection<HircSection>()?.Objects ?? new List<HircObject>();
+			soundbankObjectsViewSource.View.Filter = new Predicate<object>(info => {
+				var selectedValue = typeFilterComboBox.SelectedValue?.ToString() ?? "";
+				return selectedValue == "" || (info as HircObject)?.TypeName == selectedValue;
+			});
+
+			objectDataGrid.ItemsSource = soundbankObjectsViewSource.View;
+
+			var objectTypes = soundBank.GetSection<HircSection>()?.Objects.Select(x => x.TypeName).Distinct().ToList();
+			objectTypes.Sort();
+			objectTypes.Insert(0, "");
+			typeFilterComboBox.ItemsSource = objectTypes;
 
 			if (appSettings.recentlyOpenedFiles.Contains(soundBank.FilePath)) {
 				appSettings.recentlyOpenedFiles.Remove(soundBank.FilePath);
@@ -444,10 +521,6 @@ namespace PD2SoundBankEditor {
 			replaceByNamesButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
 			setAudioPropertiesMenuItem.IsEnabled = soundBank.GetSection<HircSection>()?.GetObjects<Sound>().Any() ?? false;
 			increaseSoundLimitMenuItem.IsEnabled = soundBank.GetSection<HircSection>()?.GetObjects<ActorMixer>().Any() ?? false;
-
-			if (!soundBank.StreamInfos.Any(info => info.HasReferences)) {
-				MessageBox.Show($"This soundbank does not contain any referenced embedded streams. Unreferenced embedded data is usually garbage data.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
-			}
 		}
 
 		public void UpdateWindowTitle() {

@@ -10,6 +10,7 @@ namespace PD2SoundBankEditor {
 				"DIDX" => new DidxSection(soundBank, name, reader),
 				"DATA" => new DataSection(soundBank, name, reader),
 				"HIRC" => new HircSection(soundBank, name, reader),
+				"STID" => new StidSection(soundBank, name, reader),
 				_ => new BankSection(soundBank, name, reader)
 			};
 		}

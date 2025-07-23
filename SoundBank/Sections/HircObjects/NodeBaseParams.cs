@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 
 namespace PD2SoundBankEditor {
@@ -20,10 +19,9 @@ namespace PD2SoundBankEditor {
 		public byte VirtualQueueBehaviour;
 		public byte KillNewest;
 		public byte UseVirtualBehavior;
-		public UInt16 MaxNumInstance;
-		public byte[] Unhandled;
+		public ushort MaxNumInstance;
 
-		public NodeBaseParams(BinaryReader reader, int endPos) {
+		public NodeBaseParams(BinaryReader reader) {
 			OverrideParentEffects = reader.ReadByte();
 			var numEffects = reader.ReadByte();
 			if (numEffects > 0) {
@@ -78,8 +76,6 @@ namespace PD2SoundBankEditor {
 			KillNewest = reader.ReadByte();
 			UseVirtualBehavior = reader.ReadByte();
 			MaxNumInstance = reader.ReadUInt16();
-
-			Unhandled = reader.ReadBytes(endPos - (int)reader.BaseStream.Position); // Leftover data
 		}
 
 		public void Write(BinaryWriter writer) {
@@ -120,7 +116,6 @@ namespace PD2SoundBankEditor {
 			writer.Write(KillNewest);
 			writer.Write(UseVirtualBehavior);
 			writer.Write(MaxNumInstance);
-			writer.Write(Unhandled);
 		}
 	}
 }

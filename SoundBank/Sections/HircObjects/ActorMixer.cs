@@ -1,26 +1,24 @@
-using System.Diagnostics;
 using System.IO;
 
 namespace PD2SoundBankEditor {
 	public class ActorMixer : HircObject {
-		public uint ObjectId;
-		public NodeBaseParams NodeBaseParams;
+		public byte[] Unhandled;
 
 		public ActorMixer(HircSection section, byte type, BinaryReader reader) : base(section, type, reader) { }
 
 		public override void Read(BinaryReader reader, int amount) {
 			var dataOffset = (int)reader.BaseStream.Position;
 
-			ObjectId = reader.ReadUInt32();
+			NodeBaseParams = new(reader);
 
-			NodeBaseParams = new NodeBaseParams(reader, amount + dataOffset);
+			Unhandled = reader.ReadBytes(amount + dataOffset - (int)reader.BaseStream.Position); // Leftover data
 		}
 
 		public override void Write(BinaryWriter writer) {
 			using var dataWriter = new BinaryWriter(new MemoryStream());
 
-			dataWriter.Write(ObjectId);
 			NodeBaseParams.Write(dataWriter);
+			dataWriter.Write(Unhandled);
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);

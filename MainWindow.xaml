@@ -14,85 +14,192 @@
 		<CommandBinding Command="Save" CanExecute="CommandSaveCanExecute" Executed="CommandSaveExecuted" />
 		<CommandBinding Command="SaveAs" CanExecute="CommandSaveAsCanExecute" Executed="CommandSaveAsExecuted" />
 	</Window.CommandBindings>
-	<Grid>
-		<Grid Name="mainGrid" Margin="8,0,8,32">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="3*"/>
-				<ColumnDefinition Width="1*"/>
-			</Grid.ColumnDefinitions>
+	<Grid Name="mainGrid">
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="*"/>
+		</Grid.ColumnDefinitions>
 
-			<Grid.RowDefinitions>
-				<RowDefinition Height="Auto"/>
-				<RowDefinition Height="*"/>
-			</Grid.RowDefinitions>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+			<RowDefinition Height="Auto"/>
+		</Grid.RowDefinitions>
 
-			<Menu IsMainMenu="True" Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8" HorizontalAlignment="Stretch">
-				<MenuItem Header="_File">
-					<MenuItem Header="_Open..." Click="OnOpenButtonClick"/>
-					<Separator />
-					<MenuItem Header="_Save" Command="Save"/>
-					<MenuItem Header="Save _as..." Command="SaveAs"/>
-					<Separator />
-					<MenuItem Header="Recent _files" Name="recentFilesList">
-						<MenuItem.ItemContainerStyle>
-							<Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
-								<Setter Property="Header" Value="{Binding}"/>
-								<EventSetter Event="Click" Handler="OnRecentFileClick"/>
-							</Style>
-						</MenuItem.ItemContainerStyle>
-					</MenuItem>
-					<Separator />
-					<MenuItem Header="_Exit" Click="OnExitButtonClick"/>
+		<Menu IsMainMenu="True" Grid.Row="0" Margin="0,0,0,8">
+			<MenuItem Header="_File">
+				<MenuItem Header="_Open..." Click="OnOpenButtonClick"/>
+				<Separator />
+				<MenuItem Header="_Save" Command="Save"/>
+				<MenuItem Header="Save _as..." Command="SaveAs"/>
+				<Separator />
+				<MenuItem Header="Recent _files" Name="recentFilesList">
+					<MenuItem.ItemContainerStyle>
+						<Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
+							<Setter Property="Header" Value="{Binding}"/>
+							<EventSetter Event="Click" Handler="OnRecentFileClick"/>
+						</Style>
+					</MenuItem.ItemContainerStyle>
 				</MenuItem>
-				<MenuItem Header="_Tools">
-					<MenuItem Header="_Convert loose files..." Click="OnConvertLooseFilesClick"/>
-                    <MenuItem Name="setAudioPropertiesMenuItem" Header="_Set audio properties..." Click="OnSetAudioPropertiesClick" IsEnabled="False"/>
-                    <MenuItem Name="increaseSoundLimitMenuItem" Header="_Increase sound limit" Click="OnIncreaseSoundLimitClick" IsEnabled="False"/>
-                </MenuItem>
-				<MenuItem Header="_View">
-					<MenuItem Header="_Hide unreferenced files" IsCheckable="True" IsChecked="{Binding HideUnreferencedEnabled, Mode=TwoWay}" Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
-				</MenuItem>
-				<MenuItem Header="_Help">
-					<MenuItem Header="_Suppress playback errors" IsCheckable="True" IsChecked="{Binding SuppressErrorsEnabled, Mode=TwoWay}"/>
-					<MenuItem Header="Check for _updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
-					<Separator />
-					<MenuItem Header="_About..." Click="OnAboutButtonClick"/>
-				</MenuItem>
-			</Menu>
+				<Separator />
+				<MenuItem Header="_Exit" Click="OnExitButtonClick"/>
+			</MenuItem>
+			<MenuItem Header="_Tools">
+				<MenuItem Header="_Convert loose files..." Click="OnConvertLooseFilesClick"/>
+				<MenuItem Name="setAudioPropertiesMenuItem" Header="_Set audio properties..." Click="OnSetAudioPropertiesClick" IsEnabled="False"/>
+				<MenuItem Name="increaseSoundLimitMenuItem" Header="_Increase sound limit" Click="OnIncreaseSoundLimitClick" IsEnabled="False"/>
+			</MenuItem>
+			<MenuItem Header="_View">
+				<MenuItem Header="_Hide unreferenced files" IsCheckable="True" IsChecked="{Binding HideUnreferencedEnabled, Mode=TwoWay}" Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
+			</MenuItem>
+			<MenuItem Header="_Help">
+				<MenuItem Header="_Suppress playback errors" IsCheckable="True" IsChecked="{Binding SuppressErrorsEnabled, Mode=TwoWay}"/>
+				<MenuItem Header="Check for _updates on startup" IsCheckable="True" IsChecked="{Binding UpdateCheckEnabled, Mode=TwoWay}"/>
+				<Separator />
+				<MenuItem Header="_About..." Click="OnAboutButtonClick"/>
+			</MenuItem>
+		</Menu>
 
-			<DataGrid Name="dataGrid" AutoGenerateColumns="False" Grid.Column="0" Grid.Row="1" SelectionChanged="OnDataGridSelectionChanged" HorizontalScrollBarVisibility="Disabled">
-				<DataGrid.Columns>
-					<DataGridTemplateColumn SortMemberPath="Offset" IsReadOnly="True">
-						<DataGridTemplateColumn.CellTemplate>
-							<DataTemplate>
-								<Button Content="▶" Click="OnPlayButtonClick" Width="20" Height="20" Padding="0,0,0,0"/>
-							</DataTemplate>
-						</DataGridTemplateColumn.CellTemplate>
-					</DataGridTemplateColumn>
-					<DataGridTextColumn Header="ID" Binding="{Binding Id}" IsReadOnly="True"/>
-					<DataGridTextColumn Header="Size" Binding="{Binding Size, StringFormat={}{0:0.0} KB}" IsReadOnly="True"/>
-					<DataGridTextColumn Width="*" Header="Note" Binding="{Binding Note}" IsReadOnly="False"/>
-					<DataGridTextColumn Width="*" Header="Replacement" Binding="{Binding ReplacementFile}" IsReadOnly="True"/>
-				</DataGrid.Columns>
-			</DataGrid>
+		<TabControl Grid.Row="1">
+			<TabItem Header="Embedded Sounds">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="3*"/>
+						<ColumnDefinition Width="8"/>
+						<ColumnDefinition Width="1*"/>
+					</Grid.ColumnDefinitions>
 
-			<Grid Grid.Column="1" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,0,0">
-				<Grid.RowDefinitions>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="*"/>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="Auto"/>
-				</Grid.RowDefinitions>
-				<Button Grid.Row="0" Name="extractAllButton" Content="Extract all" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
-				<Button Grid.Row="1" Name="extractSelectedButton" Content="Extract selected" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
-				<Button Grid.Row="2" Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24" Margin="0,8,0,0"/>
-				<Button Grid.Row="3" Name="replaceByNamesButton" Content="Replace by ID..." Click="OnReplaceByNamesButtonClick" IsEnabled="False" Height="24" Margin="0,0,0,0"/>
-				<TextBox Grid.Row="5" Name="filterTextBox" adonisExtensions:WatermarkExtension.Watermark="Filter" TextChanged="OnFilterChanged" Height="24"/>
-			</Grid>
-		</Grid>
-		<ProgressBar Name="progressBar" Margin="8,8,8,8" VerticalAlignment="Bottom" Height="16"/>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="8"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+
+					<DataGrid Name="soundDataGrid"
+							  AutoGenerateColumns="False"
+							  Grid.Column="0"
+							  Grid.Row="0"
+							  SelectionChanged="OnSoundDataGridSelectionChanged"
+							  HorizontalScrollBarVisibility="Disabled"
+							  VirtualizingPanel.IsVirtualizing="True"
+							  VirtualizingPanel.VirtualizationMode="Recycling"
+							  EnableRowVirtualization="True"
+							  EnableColumnVirtualization="True">
+						<DataGrid.Columns>
+							<DataGridTemplateColumn SortMemberPath="Offset" IsReadOnly="True">
+								<DataGridTemplateColumn.CellTemplate>
+									<DataTemplate>
+										<Button Content="▶" Click="OnPlayButtonClick" Width="20" Height="20" Padding="0,0,0,0"/>
+									</DataTemplate>
+								</DataGridTemplateColumn.CellTemplate>
+							</DataGridTemplateColumn>
+							<DataGridTextColumn Header="ID" Binding="{Binding Id}" IsReadOnly="True"/>
+							<DataGridTextColumn Header="Size" Binding="{Binding Size, StringFormat={}{0:0.0} KB}" IsReadOnly="True"/>
+							<DataGridTextColumn Width="*" Header="Note" Binding="{Binding Note}" IsReadOnly="False"/>
+							<DataGridTextColumn Width="*" Header="Replacement" Binding="{Binding ReplacementFile}" IsReadOnly="True"/>
+						</DataGrid.Columns>
+					</DataGrid>
+
+					<Label Name="numSoundsSelectedLabel" Grid.Column="0" Grid.Row="2" Content="0 of 0 selected" VerticalAlignment="Center" FontWeight="Normal" Margin="8,0,0,0"/>
+
+					<Grid Grid.Column="2" Grid.Row="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="*"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
+						<Button Grid.Row="0" Name="extractAllButton" Content="Extract all" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
+						<Button Grid.Row="1" Name="extractSelectedButton" Content="Extract selected" Click="OnExtractButtonClick" IsEnabled="False" Height="24"/>
+						<Button Grid.Row="2" Name="replaceSelectedButton" Content="Replace selected..." Click="OnReplaceButtonClick" IsEnabled="False" Height="24"/>
+						<Button Grid.Row="3" Name="replaceByNamesButton" Content="Replace by ID..." Click="OnReplaceByNamesButtonClick" IsEnabled="False" Height="24"/>
+					</Grid>
+
+					<TextBox Grid.Column="2" Grid.Row="2" Name="filterTextBox" adonisExtensions:WatermarkExtension.Watermark="Filter" TextChanged="OnFilterChanged" Height="24"/>
+				</Grid>
+			</TabItem>
+
+			<TabItem Header="Soundbank Objects">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="3*"/>
+						<ColumnDefinition Width="8"/>
+						<ColumnDefinition Width="2*"/>
+					</Grid.ColumnDefinitions>
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="8"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+
+					<DataGrid Name="objectDataGrid"
+							  AutoGenerateColumns="False"
+							  Grid.Column="0"
+							  Grid.Row="0"
+							  SelectionChanged="OnObjectDataGridSelectionChanged"
+							  HorizontalScrollBarVisibility="Disabled"
+							  VirtualizingPanel.IsVirtualizing="True"
+							  VirtualizingPanel.VirtualizationMode="Recycling"
+							  EnableRowVirtualization="True"
+							  EnableColumnVirtualization="True">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header=""
+												IsReadOnly="True"
+												SortMemberPath="Offset"/>
+							<DataGridTextColumn Header="ID"
+												Binding="{Binding Id}"
+												IsReadOnly="True"/>
+							<DataGridTextColumn Header="Size"
+												Binding="{Binding Size, StringFormat={}{0:d} B}"
+												IsReadOnly="True"/>
+							<DataGridTextColumn Header="Type"
+												Binding="{Binding TypeName}"
+												IsReadOnly="True"
+												Width="*"/>
+						</DataGrid.Columns>
+					</DataGrid>
+
+					<Label Name="numObjectsSelectedLabel" Grid.Column="0" Grid.Row="2" Content="0 of 0 selected" VerticalAlignment="Center" FontWeight="Normal" Margin="8,0,0,0"/>
+
+					<DataGrid Name="selectedObjectDataGrid"
+							  CanUserSortColumns="False"
+							  AutoGenerateColumns="False"
+							  Grid.Column="2"
+							  Grid.Row="0"
+							  SelectionChanged="OnObjectDataGridSelectionChanged"
+							  HorizontalScrollBarVisibility="Disabled"
+							  VirtualizingPanel.IsVirtualizing="True"
+							  VirtualizingPanel.VirtualizationMode="Recycling"
+							  EnableRowVirtualization="True"
+							  EnableColumnVirtualization="True">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header="Parameter"
+												Binding="{Binding Name}"
+												IsReadOnly="True"/>
+							<DataGridTextColumn Header="Value"
+												Binding="{Binding Value}"
+												IsReadOnly="True"
+												Width="*"/>
+						</DataGrid.Columns>
+					</DataGrid>
+
+					<Grid Grid.Column="2" Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="8"/>
+							<ColumnDefinition Width="*"/>
+						</Grid.ColumnDefinitions>
+
+						<Label Grid.Column="0" Content="Type Filter:" Target="{Binding ElementName=typeFilterComboBox}" VerticalAlignment="Center" FontWeight="Normal"/>
+						<ComboBox Grid.Column="2" Name="typeFilterComboBox" SelectionChanged="OnTypeFilterChanged" HorizontalAlignment="Stretch"/>
+					</Grid>
+				</Grid>
+			</TabItem>
+		</TabControl>
+
+		<ProgressBar Name="progressBar" Height="16" Grid.Row="2"/>
 	</Grid>
 </adonisControls:AdonisWindow>

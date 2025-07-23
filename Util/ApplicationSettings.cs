@@ -8,5 +8,9 @@ namespace PD2SoundBankEditor {
 		public bool hideUnreferenced = true;
 		public DateTime lastUpdateCheck = new();
 		public List<string> recentlyOpenedFiles = new();
+		public double windowWidth = 720;
+		public double windowHeight = 480;
+		public double windowLeft = -1;
+		public double windowTop = -1;
 	}
 }

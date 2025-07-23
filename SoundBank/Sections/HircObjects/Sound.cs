@@ -1,25 +1,30 @@
-using System.Diagnostics;
 using System.IO;
 
 namespace PD2SoundBankEditor {
 	public class Sound : HircObject {
-		public uint ObjectId { get; protected set; }
-		public uint PluginId { get; protected set; }
-		public uint StreamType { get; protected set; }
-		public uint SourceId { get; protected set; }
-		public uint FileId { get; protected set; }
-		public uint FileOffset { get; protected set; }
-		public uint FileSize { get; protected set; }
-		public byte SourceBits { get; protected set; }
-		public uint UnknownSize { get; protected set; }
-		public NodeBaseParams NodeBaseParams { get; protected set; }
+		public uint PluginId;
+		public uint StreamType;
+		public uint SourceId;
+		public uint FileId;
+		public uint FileOffset;
+		public uint FileSize;
+		public byte SourceBits;
+		public uint UnknownSize;
+		public byte[] Unhandled;
+		public string SoundType {
+			get => StreamType switch {
+				0 => "Embedded",
+				1 => "Streamed",
+				2 => "Prefetch",
+				_ => "Unknown"
+			};
+		}
 
 		public Sound(HircSection section, byte type, BinaryReader reader) : base(section, type, reader) { }
 
 		public override void Read(BinaryReader reader, int amount) {
 			var dataOffset = (int)reader.BaseStream.Position;
 
-			ObjectId = reader.ReadUInt32();
 			PluginId = reader.ReadUInt32();
 			StreamType = reader.ReadUInt32(); // 0 = embedded, 1 = streamed, 2 = prefetch
 			SourceId = reader.ReadUInt32();
@@ -38,19 +43,17 @@ namespace PD2SoundBankEditor {
 			SourceBits = reader.ReadByte(); // 0 = sfx, 1 = voice
 
 			if ((PluginId & 0xF) > 1) {
-				//Trace.WriteLine($"Plugin 0x{PluginId & 0xF:X1} 0x{(PluginId & 0xFFF0) >> 4:X3}");
 				UnknownSize = reader.ReadUInt32(); // Unknown size field
 			}
 
-			//Trace.WriteLine($"{ObjectId} {PluginId} {StreamType}");
+			NodeBaseParams = new(reader);
 
-			NodeBaseParams = new NodeBaseParams(reader, amount + dataOffset);
+			Unhandled = reader.ReadBytes(amount + dataOffset - (int)reader.BaseStream.Position); // Leftover data
 		}
 
 		public override void Write(BinaryWriter writer) {
 			using var dataWriter = new BinaryWriter(new MemoryStream());
 
-			dataWriter.Write(ObjectId);
 			dataWriter.Write(PluginId);
 			dataWriter.Write(StreamType);
 			dataWriter.Write(SourceId);
@@ -71,6 +74,7 @@ namespace PD2SoundBankEditor {
 				dataWriter.Write(UnknownSize);
 			}
 			NodeBaseParams.Write(dataWriter);
+			dataWriter.Write(Unhandled);
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);
