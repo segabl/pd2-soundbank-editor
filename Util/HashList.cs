@@ -28,7 +28,7 @@ namespace PD2SoundBankEditor
 
         static private uint FNVHash(string name)
         {
-            var namebytes = Encoding.UTF8.GetBytes(name);
+            var namebytes = Encoding.UTF8.GetBytes(name.ToLower());
             var hash = 2166136261; // FNV initial offset
 
             foreach (byte namebyte in namebytes)
