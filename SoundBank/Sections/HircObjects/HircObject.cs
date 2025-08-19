@@ -7,6 +7,8 @@ namespace PD2SoundBankEditor {
 			var type = reader.ReadByte();
 			return type switch {
 				0x02 => new Sound(section, type, reader),
+				0x03 => new Action(section, type, reader),
+				0x04 => new Event(section, type, reader),
 				0x07 => new ActorMixer(section, type, reader),
 				_ => new HircObject(section, type, reader)
 			};
