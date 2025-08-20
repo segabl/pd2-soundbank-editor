@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Windows;
 
@@ -10,16 +11,25 @@ namespace PD2SoundBankEditor
     public static class HashList
     {
         static private Dictionary<uint, string> MatchTable = new Dictionary<uint, string>();
+        static private string HashlistFile = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "hashlist");
 
         static HashList()
         {
-            var hashlistFile = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "hashlist");
-            if (!File.Exists(hashlistFile))
+            if (!File.Exists(HashlistFile))
             {
-                MessageBox.Show("ID hashlist not found in the application's directory; event names will be unavailable.", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+                var result = MessageBox.Show("Soundname hashlist for event, switch and parameter names not found. Download?", "Information", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (result == MessageBoxResult.Yes)
+                {
+                    DownloadHashlist();
+                }
                 return;
             }
-            List<string> strings = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(hashlistFile));
+            ProcessHashlist();
+        }
+
+        static private void ProcessHashlist()
+        {
+            List<string> strings = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(HashlistFile));
             foreach (string s in strings)
             {
                 MatchTable[FNVHash(s)] = s;
@@ -46,7 +56,26 @@ namespace PD2SoundBankEditor
             string stringId;
             MatchTable.TryGetValue(id, out stringId);
 
-            return stringId;
+            if (stringId != null)
+            {
+                return stringId;
+            } else
+            {
+                return "(?) " + id.ToString();
+            }
+        }
+
+        static private void DownloadHashlist()
+        {
+            try
+            {
+                var client = new WebClient();
+                client.Headers.Add("User-Agent:PD2SoundbankEditor");
+                client.DownloadFile(new Uri("https://raw.githubusercontent.com/Javgarag/pd2-mods/refs/heads/main/resources/wwise-ids/wwise-string-list.json"), HashlistFile);
+                ProcessHashlist();
+            } catch (Exception ex) {
+                MessageBox.Show("Couldn't download hashlist: " + ex.ToString(), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

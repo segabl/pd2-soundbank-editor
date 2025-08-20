@@ -56,7 +56,6 @@ namespace PD2SoundBankEditor {
 			StringId = type switch // Only try to dehash names for reversable types
 			{
 				0x04 => HashList.DehashId(Id),
-				0x06 => HashList.DehashId(Id),
 				0x08 => HashList.DehashId(Id),
 				_ => null
 			};
