@@ -397,7 +397,51 @@ namespace PD2SoundBankEditor {
 				properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
 			}
 
-			if (selectedItems.All(x => x.NodeBaseParams != null)) {
+			if (types.Count == 1 && selectedItems[0] is Action)
+			{
+				var castItems = selectedItems.Cast<Action>();
+				properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeString).Distinct().ToList()));
+				properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeString).Distinct().ToList()));
+				properties.Add(CreateProperty("Referenced Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
+				for (byte i = 0; i < castItems.Select(x => x.ParameterNumber).First(); i++)
+				{
+					foreach (var key in castItems.Select(x => x.Parameters).First())
+					{
+						properties.Add(CreateProperty(key.Key switch
+						{
+							0x0E => "Delay (ms)",
+							0x0F => "Fade-in Time (ms)",
+							0x10 => "Probability",
+							_ => "Unknown Parameter"
+						}, key.Key switch
+						{
+							0x0E => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
+							0x0F => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
+							0x10 => new List<string> { BitConverter.ToSingle(key.Value).ToString() },
+							_ => new List<string> { "?" }
+                        }));
+                    }
+                }
+				if (castItems.Select(x => x.ActionType).Distinct().First() == 0x12 || castItems.Select(x => x.ActionType).Distinct().First() == 0x19)
+				{
+                    properties.Add(CreateProperty("Switch Group ID", castItems.Select(x => x.SwitchGroupId.ToString()).Distinct().ToList()));
+                    properties.Add(CreateProperty("Switch ID", castItems.Select(x => x.SwitchId.ToString()).Distinct().ToList()));
+                }
+            }
+
+            if (types.Count == 1 && selectedItems[0] is Event)
+            {
+                var castItems = selectedItems.Cast<Event>();
+				if (castItems.Select(x => x.ActionNumber).First() > 0)
+				{
+					foreach (var actionId in castItems.SelectMany(x => x.ActionIDs).Distinct())
+					{
+						properties.Add(CreateProperty("Action ID", new List<string> { actionId.ToString() }));
+					}
+				}
+            }
+
+            if (selectedItems.All(x => x.NodeBaseParams != null)) {
 				var volumes = selectedItems.Select(x => {
 					return x.NodeBaseParams.Properties1.TryGetValue(0, out var val) ? val.ToString() : "";
 				}).Distinct().ToList();

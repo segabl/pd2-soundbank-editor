@@ -152,6 +152,9 @@
 							<DataGridTextColumn Header="ID"
 												Binding="{Binding Id}"
 												IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Name"
+												Binding="{Binding StringId}"
+												IsReadOnly="True"/>
 							<DataGridTextColumn Header="Size"
 												Binding="{Binding Size, StringFormat={}{0:d} B}"
 												IsReadOnly="True"/>
