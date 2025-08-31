@@ -3,7 +3,6 @@ using System.IO;
 
 namespace PD2SoundBankEditor {
 	public class NodeBaseParams {
-
 		public byte OverrideParentEffects;
 		public byte EffectBitMask;
 		public List<(byte, uint)> Effects = new();
@@ -33,6 +32,7 @@ namespace PD2SoundBankEditor {
 					reader.ReadBytes(2); // 2 zero bytes
 				}
 			}
+
 			OutputBus = reader.ReadUInt32();
 			ParentObject = reader.ReadUInt32();
 
@@ -45,6 +45,7 @@ namespace PD2SoundBankEditor {
 				for (var i = 0; i < numProperties1; i++) {
 					propertyTypes[i] = reader.ReadByte();
 				}
+
 				for (var i = 0; i < numProperties1; i++) {
 					var type = propertyTypes[i];
 					var value = reader.ReadSingle();
@@ -58,6 +59,7 @@ namespace PD2SoundBankEditor {
 				for (var i = 0; i < numProperties2; i++) {
 					propertyTypes[i] = reader.ReadByte();
 				}
+
 				for (var i = 0; i < numProperties2; i++) {
 					var type = propertyTypes[i];
 					var value = reader.ReadSingle();
@@ -89,6 +91,7 @@ namespace PD2SoundBankEditor {
 					writer.Write((ushort)0);
 				}
 			}
+
 			writer.Write(OutputBus);
 			writer.Write(ParentObject);
 			writer.Write(OverrideParentPriority);
@@ -97,20 +100,25 @@ namespace PD2SoundBankEditor {
 			foreach (var (type, _) in Properties1) {
 				writer.Write(type);
 			}
+
 			foreach (var (_, value) in Properties1) {
 				writer.Write(value);
 			}
+
 			writer.Write((byte)Properties2.Count);
 			foreach (var (type, _) in Properties2) {
 				writer.Write(type);
 			}
+
 			foreach (var (_, value) in Properties2) {
 				writer.Write(value);
 			}
+
 			writer.Write(ByVector);
 			if (ByVector > 0) {
 				writer.Write(PositioningParams);
 			}
+
 			writer.Write(AuxParams);
 			writer.Write(VirtualQueueBehaviour);
 			writer.Write(KillNewest);

@@ -11,12 +11,13 @@ namespace PD2SoundBankEditor {
 		public byte SourceBits;
 		public uint UnknownSize;
 		public byte[] Unhandled;
-		public string SoundType {
+
+		public string StreamTypeName {
 			get => StreamType switch {
 				0 => "Embedded",
 				1 => "Streamed",
 				2 => "Prefetch",
-				_ => "Unknown"
+				_ => $"Unknown (0x{StreamType:x2})"
 			};
 		}
 
@@ -40,6 +41,7 @@ namespace PD2SoundBankEditor {
 					}
 				}
 			}
+
 			SourceBits = reader.ReadByte(); // 0 = sfx, 1 = voice
 
 			if ((PluginId & 0xF) > 1) {
@@ -66,13 +68,16 @@ namespace PD2SoundBankEditor {
 						FileSize = (uint)streamInfo.Data.Length;
 					}
 				}
+
 				dataWriter.Write(FileOffset);
 				dataWriter.Write(FileSize);
 			}
+
 			dataWriter.Write(SourceBits);
 			if ((PluginId & 0xF) > 1) {
 				dataWriter.Write(UnknownSize);
 			}
+
 			NodeBaseParams.Write(dataWriter);
 			dataWriter.Write(Unhandled);
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();

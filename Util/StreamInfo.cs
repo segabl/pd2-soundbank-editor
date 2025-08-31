@@ -4,7 +4,6 @@ using System.IO;
 namespace PD2SoundBankEditor {
 	// Helper Class containing information about embedded streams
 	public class StreamInfo : INotifyPropertyChanged {
-
 		private byte[] data;
 		private string replacementFile;
 
@@ -13,6 +12,7 @@ namespace PD2SoundBankEditor {
 		public SoundBank SoundBank { get; protected set; }
 		public uint Id { get; private set; }
 		public int Offset { get; set; }
+
 		public byte[] Data {
 			get => data;
 			set {
@@ -21,8 +21,13 @@ namespace PD2SoundBankEditor {
 				PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Size"));
 			}
 		}
+
 		public bool HasReferences { get; set; }
-		public double Size { get => data.Length / 1024f; }
+
+		public double Size {
+			get => data.Length / 1024f;
+		}
+
 		public string ReplacementFile {
 			get => replacementFile;
 			set {

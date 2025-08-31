@@ -38,13 +38,23 @@ namespace PD2SoundBankEditor {
 		private Timer autosaveNotesTimer;
 		private Regex viewFilterRegex = null;
 
-		public bool UpdateCheckEnabled { get => appSettings.checkForUpdates; set => appSettings.checkForUpdates = value; }
-		public bool SuppressErrorsEnabled { get => appSettings.suppressErrors; set => appSettings.suppressErrors = value; }
-		public bool HideUnreferencedEnabled { get => appSettings.hideUnreferenced; set => appSettings.hideUnreferenced = value; }
+		public bool UpdateCheckEnabled {
+			get => appSettings.checkForUpdates;
+			set => appSettings.checkForUpdates = value;
+		}
+
+		public bool SuppressErrorsEnabled {
+			get => appSettings.suppressErrors;
+			set => appSettings.suppressErrors = value;
+		}
+
+		public bool HideUnreferencedEnabled {
+			get => appSettings.hideUnreferenced;
+			set => appSettings.hideUnreferenced = value;
+		}
 
 		public MainWindow() {
 			InitializeComponent();
-			DataContext = this;
 
 			if (File.Exists(SETTINGS_PATH)) {
 				try {
@@ -80,9 +90,7 @@ namespace PD2SoundBankEditor {
 				AutoReset = true,
 				Enabled = true
 			};
-			autosaveNotesTimer.Elapsed += (object source, ElapsedEventArgs e) => {
-				soundBank?.SaveNotes();
-			};
+			autosaveNotesTimer.Elapsed += (object source, ElapsedEventArgs e) => { soundBank?.SaveNotes(); };
 
 			mediaPlayer.MediaEnded += SetPlayButtonState;
 
@@ -107,6 +115,7 @@ namespace PD2SoundBankEditor {
 				Trace.WriteLine(ex.Message);
 				File.AppendAllText(LOG_PATH, ex.Message);
 			}
+
 			if (latestRelease == null) {
 				return;
 			}
@@ -129,6 +138,7 @@ namespace PD2SoundBankEditor {
 			soundBank.Save(soundBank.FilePath);
 			UpdateWindowTitle();
 		}
+
 		private void CommandSaveAsCanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) {
 			e.CanExecute = soundBank != null;
 		}
@@ -142,6 +152,7 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
+
 			soundBank.Save(diag.FileName);
 			UpdateWindowTitle();
 		}
@@ -153,6 +164,7 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
+
 			soundBank?.SaveNotes();
 
 			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, diag.FileName);
@@ -177,9 +189,11 @@ namespace PD2SoundBankEditor {
 			if (diag.ShowDialog() != true) {
 				return;
 			}
+
 			if (!Directory.Exists(TEMPORARY_PATH)) {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
+
 			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
 			var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
 			try {
@@ -188,6 +202,7 @@ namespace PD2SoundBankEditor {
 				MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
 			}
+
 			var data = File.ReadAllBytes(fileName);
 			foreach (var info in soundDataGrid.SelectedItems.Cast<StreamInfo>()) {
 				info.Data = data;
@@ -197,6 +212,7 @@ namespace PD2SoundBankEditor {
 					File.Delete(tmpFile);
 				}
 			}
+
 			soundBank.IsDirty = true;
 			UpdateWindowTitle();
 		}
@@ -223,6 +239,7 @@ namespace PD2SoundBankEditor {
 					notfound.Add(fileNameNoExt + ".wav");
 					continue;
 				}
+
 				var targetStreamInfo = soundBank.StreamInfos.FirstOrDefault(info => info.Id == targetStreamId);
 				if (targetStreamInfo == null) {
 					notfound.Add(fileNameNoExt + ".wav");
@@ -241,8 +258,7 @@ namespace PD2SoundBankEditor {
 			}
 		}
 
-		private void OnEditParametersButtonClick(object sender, RoutedEventArgs e) {
-		}
+		private void OnEditParametersButtonClick(object sender, RoutedEventArgs e) { }
 
 		private void OnFilterChanged(object sender, RoutedEventArgs e) {
 			var view = embeddedSoundsViewSource.View;
@@ -303,6 +319,7 @@ namespace PD2SoundBankEditor {
 					if (!SuppressErrorsEnabled) {
 						MessageBox.Show($"{debugStr}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 					}
+
 					return;
 				}
 			}
@@ -333,7 +350,6 @@ namespace PD2SoundBankEditor {
 			var diag = new OpenFileDialog {
 				Filter = "Stream audio files (*.stream)|*.stream|Wave audio files (*.wav)|*.wav",
 				Multiselect = true,
-
 			};
 			if (diag.ShowDialog() != true) {
 				return;
@@ -355,6 +371,7 @@ namespace PD2SoundBankEditor {
 					changed = true;
 				}
 			}
+
 			if (changed) {
 				MessageBox.Show($"Sound limits increased.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 				soundBank.IsDirty = true;
@@ -391,60 +408,57 @@ namespace PD2SoundBankEditor {
 				CreateProperty("Type", types)
 			};
 
-			if (types.Count == 1 && selectedItems[0] is Sound) {
-				var castItems = selectedItems.Cast<Sound>();
-				properties.Add(CreateProperty("Sound Type", castItems.Select(x => x.SoundType).Distinct().ToList()));
-				properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
-			}
+			if (types.Count == 1) {
+				switch (selectedItems[0]) {
+					case Sound: {
+						var castItems = selectedItems.Cast<Sound>();
+						properties.Add(CreateProperty("Sound Type", castItems.Select(x => x.StreamTypeName).Distinct().ToList()));
+						properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
+						break;
+					}
+					case Action: {
+						var castItems = selectedItems.Cast<Action>();
+						properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeName).Distinct().ToList()));
+						properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeName).Distinct().ToList()));
+						properties.Add(CreateProperty("Ref. Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
+						for (byte i = 0; i < castItems.Select(x => x.ParameterNumber).First(); i++) {
+							foreach (var key in castItems.Select(x => x.Parameters).First()) {
+								properties.Add(CreateProperty(key.Key switch {
+									0x0E => "Delay (ms)",
+									0x0F => "Fade-in Time (ms)",
+									0x10 => "Probability",
+									_ => $"Unknown (0x{key.Key:x2})"
+								}, key.Key switch {
+									0x0E => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
+									0x0F => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
+									0x10 => new List<string> { BitConverter.ToSingle(key.Value).ToString() },
+									_ => new List<string> { $"Unknown (0x{key.Key:x2})" }
+								}));
+							}
+						}
 
-			if (types.Count == 1 && selectedItems[0] is Action)
-			{
-				var castItems = selectedItems.Cast<Action>();
-				properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeString).Distinct().ToList()));
-				properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeString).Distinct().ToList()));
-				properties.Add(CreateProperty("Referenced Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
-				for (byte i = 0; i < castItems.Select(x => x.ParameterNumber).First(); i++)
-				{
-					foreach (var key in castItems.Select(x => x.Parameters).First())
-					{
-						properties.Add(CreateProperty(key.Key switch
-						{
-							0x0E => "Delay (ms)",
-							0x0F => "Fade-in Time (ms)",
-							0x10 => "Probability",
-							_ => "Unknown Parameter"
-						}, key.Key switch
-						{
-							0x0E => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
-							0x0F => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
-							0x10 => new List<string> { BitConverter.ToSingle(key.Value).ToString() },
-							_ => new List<string> { "?" }
-                        }));
-                    }
-                }
-				if (castItems.Select(x => x.ActionType).Distinct().First() == 0x12 || castItems.Select(x => x.ActionType).Distinct().First() == 0x19)
-				{
-                    properties.Add(CreateProperty("Switch Group ID", castItems.Select(x => x.SwitchGroupId.ToString()).Distinct().ToList()));
-                    properties.Add(CreateProperty("Switch ID", castItems.Select(x => x.SwitchId.ToString()).Distinct().ToList()));
-                }
-            }
+						if (castItems.Select(x => x.ActionType).Distinct().First() == 0x12 || castItems.Select(x => x.ActionType).Distinct().First() == 0x19) {
+							properties.Add(CreateProperty("Switch Group ID", castItems.Select(x => x.SwitchGroupId.ToString()).Distinct().ToList()));
+							properties.Add(CreateProperty("Switch ID", castItems.Select(x => x.SwitchId.ToString()).Distinct().ToList()));
+						}
 
-            if (types.Count == 1 && selectedItems[0] is Event)
-            {
-                var castItems = selectedItems.Cast<Event>();
-				if (castItems.Select(x => x.ActionNumber).First() > 0)
-				{
-					foreach (var actionId in castItems.SelectMany(x => x.ActionIDs).Distinct())
-					{
-						properties.Add(CreateProperty("Action ID", new List<string> { actionId.ToString() }));
+						break;
+					}
+					case Event: {
+						var castItems = selectedItems.Cast<Event>();
+						if (castItems.Select(x => x.ActionNumber).First() > 0) {
+							foreach (var actionId in castItems.SelectMany(x => x.ActionIDs).Distinct()) {
+								properties.Add(CreateProperty("Action ID", new List<string> { actionId.ToString() }));
+							}
+						}
+
+						break;
 					}
 				}
-            }
+			}
 
-            if (selectedItems.All(x => x.NodeBaseParams != null)) {
-				var volumes = selectedItems.Select(x => {
-					return x.NodeBaseParams.Properties1.TryGetValue(0, out var val) ? val.ToString() : "";
-				}).Distinct().ToList();
+			if (selectedItems.All(x => x.NodeBaseParams != null)) {
+				var volumes = selectedItems.Select(x => { return x.NodeBaseParams.Properties1.TryGetValue(0, out var val) ? val.ToString() : ""; }).Distinct().ToList();
 				var maxInstances = selectedItems.Select(x => x.NodeBaseParams.MaxNumInstance.ToString()).Distinct().ToList();
 				properties.Add(CreateProperty("Volume", volumes));
 				properties.Add(CreateProperty("Max Instances", maxInstances));
@@ -458,6 +472,7 @@ namespace PD2SoundBankEditor {
 			if (Directory.Exists(TEMPORARY_PATH)) {
 				Directory.Delete(TEMPORARY_PATH, true);
 			}
+
 			appSettings.windowWidth = Width;
 			appSettings.windowHeight = Height;
 			appSettings.windowLeft = Left;
@@ -491,10 +506,12 @@ namespace PD2SoundBankEditor {
 			} else {
 				progressBar.IsIndeterminate = true;
 			}
+
 			worker.RunWorkerCompleted += OnGenericProcessingFinished;
 			if (workFinished != null) {
 				worker.RunWorkerCompleted += (sender, e) => workFinished(sender, e);
 			}
+
 			worker.RunWorkerAsync(argument);
 		}
 
@@ -523,7 +540,7 @@ namespace PD2SoundBankEditor {
 			}
 
 			embeddedSoundsViewSource.Source = soundBank.StreamInfos;
-			embeddedSoundsViewSource.View.Filter = new Predicate<object>(info => {
+			embeddedSoundsViewSource.View.Filter = info => {
 				if (HideUnreferencedEnabled && !(info as StreamInfo).HasReferences) {
 					return false;
 				} else if (viewFilterRegex == null) {
@@ -531,16 +548,16 @@ namespace PD2SoundBankEditor {
 				} else {
 					return viewFilterRegex.Match((info as StreamInfo).Note).Success || viewFilterRegex.Match((info as StreamInfo).Id.ToString()).Success;
 				}
-			});
+			};
 
 			soundDataGrid.ItemsSource = embeddedSoundsViewSource.View;
 			soundDataGrid.DataContext = embeddedSoundsViewSource.View;
 
 			soundbankObjectsViewSource.Source = soundBank.GetSection<HircSection>()?.Objects ?? new List<HircObject>();
-			soundbankObjectsViewSource.View.Filter = new Predicate<object>(info => {
+			soundbankObjectsViewSource.View.Filter = info => {
 				var selectedValue = typeFilterComboBox.SelectedValue?.ToString() ?? "";
 				return selectedValue == "" || (info as HircObject)?.TypeName == selectedValue;
-			});
+			};
 
 			objectDataGrid.ItemsSource = soundbankObjectsViewSource.View;
 
@@ -552,10 +569,12 @@ namespace PD2SoundBankEditor {
 			if (appSettings.recentlyOpenedFiles.Contains(soundBank.FilePath)) {
 				appSettings.recentlyOpenedFiles.Remove(soundBank.FilePath);
 			}
+
 			appSettings.recentlyOpenedFiles.Insert(0, soundBank.FilePath);
 			if (appSettings.recentlyOpenedFiles.Count > 10) {
 				appSettings.recentlyOpenedFiles.RemoveRange(10, appSettings.recentlyOpenedFiles.Count - 10);
 			}
+
 			recentFilesList.ItemsSource = null; //too lazy for proper notify
 			recentFilesList.ItemsSource = appSettings.recentlyOpenedFiles;
 
@@ -578,6 +597,7 @@ namespace PD2SoundBankEditor {
 			if (!Directory.Exists(savePath)) {
 				Directory.CreateDirectory(savePath);
 			}
+
 			var n = 0;
 			var errors = new List<string>();
 			foreach (var info in streamDescriptions) {
@@ -589,8 +609,10 @@ namespace PD2SoundBankEditor {
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
 				}
+
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)streamDescriptions.Count() * 100));
 			}
+
 			e.Result = errors;
 		}
 
@@ -611,6 +633,7 @@ namespace PD2SoundBankEditor {
 			if (!Directory.Exists(TEMPORARY_PATH)) {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
+
 			foreach (var mapping in fileMappings) {
 				var file = mapping.Key;
 				var targetStreamInfo = mapping.Value;
@@ -621,15 +644,18 @@ namespace PD2SoundBankEditor {
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
 				}
+
 				targetStreamInfo.Data = File.ReadAllBytes(fileName);
 				targetStreamInfo.ReplacementFile = fileNameNoExt + ".wav";
 				var tmpFile = Path.Combine(TEMPORARY_PATH, targetStreamInfo.Id + ".wav");
 				if (File.Exists(tmpFile)) {
 					File.Delete(tmpFile);
 				}
+
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)fileMappings.Count * 100));
 				soundBank.IsDirty = true;
 			}
+
 			e.Result = errors;
 		}
 
@@ -641,6 +667,7 @@ namespace PD2SoundBankEditor {
 			} else {
 				MessageBox.Show($"Sound replacement finished successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
+
 			UpdateWindowTitle();
 		}
 
@@ -658,8 +685,10 @@ namespace PD2SoundBankEditor {
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
 				}
+
 				(sender as BackgroundWorker).ReportProgress((int)(++n / (float)files.Length * 100));
 			}
+
 			e.Result = errors;
 		}
 
@@ -680,23 +709,24 @@ namespace PD2SoundBankEditor {
 				if (playingButton != null) {
 					playingButton.Content = "▶";
 				}
+
 				playingButton = null;
 			} else {
 				playingButton = (Button)sender;
 				playingButton.Content = "■";
 			}
 		}
+
 		private int CompareVersionStrings(string v1, string v2) {
 			try {
 				var nums1 = v1.Split(".").Select(int.Parse).ToArray();
 				var nums2 = v2.Split(".").Select(int.Parse).ToArray();
 				for (var i = 0; i < nums1.Length && i < nums2.Length; i++) {
-					if (nums1[i] == nums2[i]) {
-						continue;
-					} else {
+					if (nums1[i] != nums2[i]) {
 						return Math.Sign(nums1[i] - nums2[i]);
 					}
 				}
+
 				return Math.Sign(nums1.Length - nums2.Length);
 			} catch (Exception ex) {
 				File.AppendAllText(LOG_PATH, ex.Message);

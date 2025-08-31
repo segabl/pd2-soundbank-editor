@@ -11,6 +11,7 @@ namespace PD2SoundBankEditor {
 				var data = reader.ReadBytes(info.Data.Length);
 				Array.Copy(data, info.Data, data.Length);
 			}
+
 			if (reader.BaseStream.Position != DataOffset + amount) {
 				throw new FileFormatException("Soundbank data is malformed.");
 			}
@@ -23,8 +24,10 @@ namespace PD2SoundBankEditor {
 				if (padding > 0) {
 					dataWriter.Write(new byte[padding]);
 				}
+
 				dataWriter.Write(info.Data);
 			}
+
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);

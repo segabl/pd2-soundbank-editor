@@ -71,6 +71,7 @@ namespace PD2SoundBankEditor {
 			if (!float.TryParse(audioLevelTextBox.Text, numberStyles, System.Globalization.NumberFormatInfo.InvariantInfo, out var num)) {
 				num = 0;
 			}
+
 			enteringText = true;
 			audioLevelSlider.Value = Math.Clamp(num, audioLevelSlider.Minimum, audioLevelSlider.Maximum);
 			enteringText = false;

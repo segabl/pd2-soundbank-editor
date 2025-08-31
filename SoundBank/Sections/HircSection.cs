@@ -4,8 +4,7 @@ using System.Linq;
 
 namespace PD2SoundBankEditor {
 	public class HircSection : BankSection {
-
-		public List<HircObject> Objects { get; protected set; } = new ();
+		public List<HircObject> Objects { get; protected set; } = new();
 
 		public HircSection(SoundBank soundBank, string name, BinaryReader reader) : base(soundBank, name, reader) { }
 
@@ -15,6 +14,7 @@ namespace PD2SoundBankEditor {
 				var obj = HircObject.Read(this, reader);
 				Objects.Add(obj);
 			}
+
 			if (reader.BaseStream.Position != DataOffset + amount) {
 				throw new FileFormatException("Soundbank data is malformed.");
 			}
@@ -26,6 +26,7 @@ namespace PD2SoundBankEditor {
 			foreach (var obj in Objects) {
 				obj.Write(dataWriter);
 			}
+
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);

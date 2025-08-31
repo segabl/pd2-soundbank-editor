@@ -21,6 +21,7 @@ namespace PD2SoundBankEditor {
 		public uint Id { get; protected set; }
 		public string StringId { get; protected set; }
 		public byte[] Data { get; protected set; }
+
 		public string TypeName {
 			get => Type switch {
 				0x02 => "Sound",
@@ -34,7 +35,7 @@ namespace PD2SoundBankEditor {
 				0x0A => "Music Segment",
 				0x0B => "Music Track",
 				0x0C => "Music Switch Container",
- 				0x0D => "Music Playlist Container",
+				0x0D => "Music Playlist Container",
 				0x0E => "Attenuation",
 				0x0F => "Dialogue Event",
 				0x10 => "Motion Bus",
@@ -45,6 +46,7 @@ namespace PD2SoundBankEditor {
 				_ => $"Unknown (0x{Type:x2})"
 			};
 		}
+
 		public NodeBaseParams NodeBaseParams { get; protected set; }
 
 		public HircObject(HircSection section, byte type, BinaryReader reader) {
