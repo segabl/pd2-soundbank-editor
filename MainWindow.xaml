@@ -4,6 +4,9 @@
                              xmlns:adonisControls="clr-namespace:AdonisUI.Controls;assembly=AdonisUI"
                              xmlns:adonisExtensions="clr-namespace:AdonisUI.Extensions;assembly=AdonisUI"
                              Closed="OnWindowClosed"
+                             AllowDrop="True"
+                             DragOver="OnFileDragOver"
+                             Drop="OnFileDragDrop"
                              Title="PD2 Soundbank Editor"
                              Height="480"
                              Width="720">
