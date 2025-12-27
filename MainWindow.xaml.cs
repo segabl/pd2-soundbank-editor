@@ -525,6 +525,26 @@ namespace PD2SoundBankEditor {
 			mainGrid.IsEnabled = true;
 		}
 
+		private void OnFileDragOver(object sender, DragEventArgs e) {
+			e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+			e.Handled = true;
+		}
+
+		private void OnFileDragDrop(object sender, DragEventArgs e) {
+			if (!e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				return;
+			}
+
+			e.Handled = true;
+
+			var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+			if (files.Length > 0) {
+				soundBank?.SaveNotes();
+
+				DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, files[0]);
+			}
+		}
+
 		public void LoadSoundBank(object sender, DoWorkEventArgs e) {
 			try {
 				soundBank = new SoundBank(e.Argument as string);
