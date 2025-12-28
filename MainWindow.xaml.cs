@@ -167,7 +167,19 @@ namespace PD2SoundBankEditor {
 
 			soundBank?.SaveNotes();
 
+			if (CheckCancelOpen()) {
+				return;
+			}
+
 			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, diag.FileName);
+		}
+
+		private bool CheckCancelOpen() {
+			if (soundBank == null || !soundBank.IsDirty) {
+				return false;
+			}
+			var result = MessageBox.Show("Unsaved changes will be lost. Continue?", "Warning", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+			return result == MessageBoxResult.No;
 		}
 
 		private void OnExitButtonClick(object sender, RoutedEventArgs e) {
@@ -337,6 +349,10 @@ namespace PD2SoundBankEditor {
 
 			soundBank?.SaveNotes();
 
+			if (CheckCancelOpen()) {
+				return;
+			}
+
 			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, file);
 
 			if (!File.Exists(file)) {
@@ -411,49 +427,49 @@ namespace PD2SoundBankEditor {
 			if (types.Count == 1) {
 				switch (selectedItems[0]) {
 					case Sound: {
-						var castItems = selectedItems.Cast<Sound>();
-						properties.Add(CreateProperty("Sound Type", castItems.Select(x => x.StreamTypeName).Distinct().ToList()));
-						properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
-						break;
-					}
+							var castItems = selectedItems.Cast<Sound>();
+							properties.Add(CreateProperty("Sound Type", castItems.Select(x => x.StreamTypeName).Distinct().ToList()));
+							properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
+							break;
+						}
 					case Action: {
-						var castItems = selectedItems.Cast<Action>();
-						properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeName).Distinct().ToList()));
-						properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeName).Distinct().ToList()));
-						properties.Add(CreateProperty("Ref. Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
-						for (byte i = 0; i < castItems.Select(x => x.Parameters.Count).First(); i++) {
-							foreach (var key in castItems.Select(x => x.Parameters).First()) {
-								properties.Add(CreateProperty(key.Key switch {
-									0x0E => "Delay (ms)",
-									0x0F => "Fade-in Time (ms)",
-									0x10 => "Probability",
-									_ => $"Unknown (0x{key.Key:x2})"
-								}, key.Key switch {
-									0x0E => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
-									0x0F => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
-									0x10 => new List<string> { BitConverter.ToSingle(key.Value).ToString() },
-									_ => new List<string> { $"Unknown (0x{key.Key:x2})" }
-								}));
+							var castItems = selectedItems.Cast<Action>();
+							properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeName).Distinct().ToList()));
+							properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeName).Distinct().ToList()));
+							properties.Add(CreateProperty("Ref. Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
+							for (byte i = 0; i < castItems.Select(x => x.Parameters.Count).First(); i++) {
+								foreach (var key in castItems.Select(x => x.Parameters).First()) {
+									properties.Add(CreateProperty(key.Key switch {
+										0x0E => "Delay (ms)",
+										0x0F => "Fade-in Time (ms)",
+										0x10 => "Probability",
+										_ => $"Unknown (0x{key.Key:x2})"
+									}, key.Key switch {
+										0x0E => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
+										0x0F => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
+										0x10 => new List<string> { BitConverter.ToSingle(key.Value).ToString() },
+										_ => new List<string> { $"Unknown (0x{key.Key:x2})" }
+									}));
+								}
 							}
-						}
 
-						if (castItems.Select(x => x.ActionType).Distinct().First() == 0x12 || castItems.Select(x => x.ActionType).Distinct().First() == 0x19) {
-							properties.Add(CreateProperty("Switch Group ID", castItems.Select(x => x.SwitchGroupId.ToString()).Distinct().ToList()));
-							properties.Add(CreateProperty("Switch ID", castItems.Select(x => x.SwitchId.ToString()).Distinct().ToList()));
-						}
+							if (castItems.Select(x => x.ActionType).Distinct().First() == 0x12 || castItems.Select(x => x.ActionType).Distinct().First() == 0x19) {
+								properties.Add(CreateProperty("Switch Group ID", castItems.Select(x => x.SwitchGroupId.ToString()).Distinct().ToList()));
+								properties.Add(CreateProperty("Switch ID", castItems.Select(x => x.SwitchId.ToString()).Distinct().ToList()));
+							}
 
-						break;
-					}
+							break;
+						}
 					case Event: {
-						var castItems = selectedItems.Cast<Event>();
-						if (castItems.Select(x => x.ActionNumber).First() > 0) {
-							foreach (var actionId in castItems.SelectMany(x => x.ActionIDs).Distinct()) {
-								properties.Add(CreateProperty("Action ID", new List<string> { actionId.ToString() }));
+							var castItems = selectedItems.Cast<Event>();
+							if (castItems.Select(x => x.ActionNumber).First() > 0) {
+								foreach (var actionId in castItems.SelectMany(x => x.ActionIDs).Distinct()) {
+									properties.Add(CreateProperty("Action ID", new List<string> { actionId.ToString() }));
+								}
 							}
-						}
 
-						break;
-					}
+							break;
+						}
 				}
 			}
 
@@ -538,11 +554,17 @@ namespace PD2SoundBankEditor {
 			e.Handled = true;
 
 			var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-			if (files.Length > 0) {
-				soundBank?.SaveNotes();
-
-				DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, files[0]);
+			if (files.Length == 0) {
+				return;
 			}
+
+			soundBank?.SaveNotes();
+
+			if (CheckCancelOpen()) {
+				return;
+			}
+
+			DoGenericProcessing(false, LoadSoundBank, OnSoundBankLoaded, files[0]);
 		}
 
 		public void LoadSoundBank(object sender, DoWorkEventArgs e) {
