@@ -54,8 +54,6 @@ namespace PD2SoundBankEditor {
 		}
 
 		public MainWindow() {
-			InitializeComponent();
-
 			if (File.Exists(SETTINGS_PATH)) {
 				try {
 					appSettings = JsonConvert.DeserializeObject<ApplicationSettings>(File.ReadAllText(SETTINGS_PATH));
@@ -64,6 +62,8 @@ namespace PD2SoundBankEditor {
 					File.AppendAllText(LOG_PATH, ex.Message);
 				}
 			}
+
+			InitializeComponent();
 
 			converterAvailable = File.Exists(CONVERTER_PATH);
 			if (!converterAvailable) {
@@ -421,7 +421,7 @@ namespace PD2SoundBankEditor {
 						properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeName).Distinct().ToList()));
 						properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeName).Distinct().ToList()));
 						properties.Add(CreateProperty("Ref. Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
-						for (byte i = 0; i < castItems.Select(x => x.ParameterNumber).First(); i++) {
+						for (byte i = 0; i < castItems.Select(x => x.Parameters.Count).First(); i++) {
 							foreach (var key in castItems.Select(x => x.Parameters).First()) {
 								properties.Add(CreateProperty(key.Key switch {
 									0x0E => "Delay (ms)",

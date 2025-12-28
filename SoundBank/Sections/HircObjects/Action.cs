@@ -52,7 +52,6 @@ namespace PD2SoundBankEditor {
 		}
 
 		public uint ObjectId;
-		public byte ParameterNumber;
 		public Dictionary<byte, byte[]> Parameters = new();
 
 		public uint SwitchGroupId;
@@ -66,22 +65,21 @@ namespace PD2SoundBankEditor {
 			var dataOffset = (int)reader.BaseStream.Position;
 
 			ActionScope = reader.ReadByte();
-
 			ActionType = reader.ReadByte();
 			ObjectId = reader.ReadUInt32();
-			reader.ReadByte(); // Always 00
+			var unusedZero1 = reader.ReadByte();
 
-			ParameterNumber = reader.ReadByte();
-			for (byte i = 0; i < ParameterNumber; i++) {
+			var numParams = reader.ReadByte();
+			for (byte i = 0; i < numParams; i++) {
 				Parameters[reader.ReadByte()] = reader.ReadBytes(4);
 			}
-
-			reader.ReadByte(); // Always 00
+			/*
+			var unusedZero2 = reader.ReadByte();
 
 			if (ActionType == 0x12 || ActionType == 0x19) {
 				SwitchGroupId = reader.ReadUInt32();
 				SwitchId = reader.ReadUInt32();
-			}
+			}*/
 
 			Unhandled = reader.ReadBytes(amount + dataOffset - (int)reader.BaseStream.Position); // Leftover data
 		}
@@ -92,18 +90,18 @@ namespace PD2SoundBankEditor {
 			dataWriter.Write(ActionScope);
 			dataWriter.Write(ActionType);
 			dataWriter.Write(ObjectId);
-			dataWriter.Write(0x00);
-			dataWriter.Write(ParameterNumber);
-			for (byte i = 0; i < ParameterNumber; i++) {
-				dataWriter.Write(Parameters.FirstOrDefault(x => x.Value == Parameters[i]).Key);
-				dataWriter.Write(Parameters[i]);
-			}
+			dataWriter.Write((byte)0);
+			dataWriter.Write((byte)Parameters.Count);
+			foreach (var param in Parameters) {
+				dataWriter.Write(param.Key);
+				dataWriter.Write(param.Value);
+			}/*
+			writer.Write((byte)0);
 
-			writer.Write(0x00);
 			if (ActionType == 0x12 || ActionType == 0x19) {
 				dataWriter.Write(SwitchGroupId);
 				dataWriter.Write(SwitchId);
-			}
+			}*/
 
 			dataWriter.Write(Unhandled);
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();

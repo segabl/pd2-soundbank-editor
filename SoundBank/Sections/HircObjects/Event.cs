@@ -14,8 +14,8 @@ namespace PD2SoundBankEditor {
 		public override void Read(BinaryReader reader, int amount) {
 			var dataOffset = (int)reader.BaseStream.Position;
 
-			ActionNumber = reader.ReadUInt32();
-			for (var i = 0; i < ActionNumber; i++) {
+			var numActions = reader.ReadUInt32();
+			for (var i = 0; i < numActions; i++) {
 				ActionIDs.Add(reader.ReadUInt32());
 			}
 
@@ -25,9 +25,9 @@ namespace PD2SoundBankEditor {
 		public override void Write(BinaryWriter writer) {
 			using var dataWriter = new BinaryWriter(new MemoryStream());
 
-			dataWriter.Write(ActionNumber);
-			for (var i = 0; i < ActionNumber; i++) {
-				dataWriter.Write(ActionIDs[i]);
+			dataWriter.Write((uint)ActionIDs.Count);
+			foreach (var actionId in ActionIDs) {
+				dataWriter.Write(actionId);
 			}
 
 			dataWriter.Write(Unhandled);
