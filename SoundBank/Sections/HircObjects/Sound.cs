@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace PD2SoundBankEditor {
@@ -91,6 +92,10 @@ namespace PD2SoundBankEditor {
 
 			properties.Add("Sound Type", StreamTypeName);
 			properties.Add("Sound ID", SourceId.ToString());
+
+			foreach (var prop in NodeBaseParams.DisplayProperties()) {
+				properties.Add(prop.Key, prop.Value);
+			}
 
 			return properties;
 		}

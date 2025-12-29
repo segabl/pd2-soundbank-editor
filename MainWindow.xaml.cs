@@ -439,16 +439,7 @@ namespace PD2SoundBankEditor {
 				isFirst = false;
 			}
 
-			var properties = displayProperties.Select(property => new { Name = property.Key, Value = property.Value }).ToList();
-
-			if (selectedItems.All(x => x.NodeBaseParams != null)) {
-				var volumes = selectedItems.Select(x => { return x.NodeBaseParams.Properties1.TryGetValue(0, out var val) ? val.ToString() : ""; }).Distinct().ToList();
-				var maxInstances = selectedItems.Select(x => x.NodeBaseParams.MaxNumInstance.ToString()).Distinct().ToList();
-				properties.Add(new { Name = "Volume", Value = volumes.Count == 0 ? "" : volumes.Count > 1 ? "<multiple>" : volumes[0].ToString() });
-				properties.Add(new { Name = "Max Instances", Value = maxInstances.Count == 0 ? "" : maxInstances.Count > 1 ? "<multiple>" : maxInstances[0].ToString() });
-			}
-
-			selectedObjectDataGrid.ItemsSource = properties;
+			selectedObjectDataGrid.ItemsSource = displayProperties.Select(property => new { Name = property.Key, Value = property.Value }).ToList();
 		}
 
 		private void OnWindowClosed(object sender, EventArgs e) {

@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace PD2SoundBankEditor {
 	public class NodeBaseParams {
@@ -13,12 +15,18 @@ namespace PD2SoundBankEditor {
 		public SortedDictionary<byte, float> Properties1 = new();
 		public SortedDictionary<byte, float> Properties2 = new();
 		public byte ByVector;
-		public byte[] PositioningParams;
+		public byte Is2DPositioningAvailable;
+		public byte Is3DPositioningAvailable;
+		public byte[] PositioningParams2D;
+		public byte[] PositioningParams3D;
 		public byte[] AuxParams;
 		public byte VirtualQueueBehaviour;
 		public byte KillNewest;
 		public byte UseVirtualBehavior;
 		public ushort MaxNumInstance;
+		public byte[] UnhandledSettings;
+		public List<StateChunk> StateChunks = new();
+		public List<RTPC> RTPCs = new();
 
 		public NodeBaseParams(BinaryReader reader) {
 			OverrideParentEffects = reader.ReadByte();
@@ -69,7 +77,14 @@ namespace PD2SoundBankEditor {
 
 			ByVector = reader.ReadByte();
 			if (ByVector > 0) {
-				PositioningParams = reader.ReadBytes(12);
+				Is2DPositioningAvailable = reader.ReadByte();
+				Is3DPositioningAvailable = reader.ReadByte();
+				if (Is2DPositioningAvailable > 0) {
+					PositioningParams2D = reader.ReadBytes(1);
+				}
+				if (Is3DPositioningAvailable > 0) {
+					PositioningParams3D = reader.ReadBytes(10);
+				}
 			}
 
 			AuxParams = reader.ReadBytes(4);
@@ -78,6 +93,18 @@ namespace PD2SoundBankEditor {
 			KillNewest = reader.ReadByte();
 			UseVirtualBehavior = reader.ReadByte();
 			MaxNumInstance = reader.ReadUInt16();
+
+			UnhandledSettings = reader.ReadBytes(8);
+
+			var numStateChunks = reader.ReadUInt32();
+			for (var i = 0; i < numStateChunks; i++) {
+				StateChunks.Add(new StateChunk(reader));
+			}
+
+			var numRTPC = reader.ReadUInt16();
+			for (var i = 0; i < numRTPC; i++) {
+				RTPCs.Add(new RTPC(reader));
+			}
 		}
 
 		public void Write(BinaryWriter writer) {
@@ -116,7 +143,14 @@ namespace PD2SoundBankEditor {
 
 			writer.Write(ByVector);
 			if (ByVector > 0) {
-				writer.Write(PositioningParams);
+				writer.Write(Is2DPositioningAvailable);
+				writer.Write(Is3DPositioningAvailable);
+				if (Is2DPositioningAvailable > 0) {
+					writer.Write(PositioningParams2D);
+				}
+				if (Is3DPositioningAvailable > 0) {
+					writer.Write(PositioningParams2D);
+				}
 			}
 
 			writer.Write(AuxParams);
@@ -124,6 +158,39 @@ namespace PD2SoundBankEditor {
 			writer.Write(KillNewest);
 			writer.Write(UseVirtualBehavior);
 			writer.Write(MaxNumInstance);
+
+			writer.Write(UnhandledSettings);
+
+			writer.Write((uint)StateChunks.Count);
+			foreach (var chunk in StateChunks) {
+				chunk.Write(writer);
+			}
+
+			writer.Write((ushort)RTPCs.Count);
+			foreach (var rtpc in RTPCs) {
+				rtpc.Write(writer);
+			}
+		}
+
+		public Dictionary<string, string> DisplayProperties() {
+			var properties = new Dictionary<string, string>() {
+				{ "Kill Newest", (KillNewest == 1).ToString() },
+				{ "Max Instances", MaxNumInstance.ToString() }
+			};
+
+			var propList = new List<string>();
+			foreach (var prop in Properties1.Concat(Properties2)) {
+				propList.Add(prop.Key switch {
+					0x00 => $"Volume: {prop.Value}",
+					0x05 => $"Priority: {prop.Value}",
+					0x06 => $"Prio. Dist. Offset: {prop.Value}",
+					_ => $"Unknown (0x{prop.Key:x2}): {prop.Value}"
+				});
+			}
+
+			properties.Add("Properties", string.Join("\n", propList));
+
+			return properties;
 		}
 	}
 }
