@@ -108,5 +108,33 @@ namespace PD2SoundBankEditor {
 
 			base.Write(writer);
 		}
+
+		public override Dictionary<string, string> DisplayProperties() {
+			var properties = base.DisplayProperties();
+
+			properties.Add("Action Scope", ActionScopeName);
+			properties.Add("Action Type", ActionTypeName);
+			properties.Add("Ref. Object ID", ObjectId.ToString());
+			foreach (var param in Parameters) {
+				properties.Add(param.Key switch {
+					0x0E => "Delay (ms)",
+					0x0F => "Fade-in Time (ms)",
+					0x10 => "Probability",
+					_ => $"Unknown (0x{param.Key:x2})"
+				}, param.Key switch {
+					0x0E => BitConverter.ToUInt32(param.Value).ToString(),
+					0x0F => BitConverter.ToUInt32(param.Value).ToString(),
+					0x10 => BitConverter.ToSingle(param.Value).ToString(),
+					_ => $"Unknown (0x{param.Key:x2})"
+				});
+			}
+
+			if (ActionType == 0x12 || ActionType == 0x19) {
+				properties.Add("Switch Group ID", SwitchGroupId.ToString());
+				properties.Add("Switch ID", SwitchId.ToString());
+			}
+
+			return properties;
+		}
 	}
 }

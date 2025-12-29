@@ -1,6 +1,7 @@
 ﻿using AdonisUI.Controls;
 using Microsoft.Win32;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -14,6 +15,7 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using MessageBox = AdonisUI.Controls.MessageBox;
 using MessageBoxButton = AdonisUI.Controls.MessageBoxButton;
@@ -417,67 +419,33 @@ namespace PD2SoundBankEditor {
 			}
 
 			var selectedItems = objectDataGrid.SelectedItems.Cast<HircObject>().ToList();
-			var ids = selectedItems.Select(x => x.Id.ToString()).Distinct().ToList();
-			var types = selectedItems.Select(x => x.TypeName).Distinct().ToList();
-			var properties = new List<object>() {
-				CreateProperty("ID", ids),
-				CreateProperty("Type", types)
-			};
-
-			if (types.Count == 1) {
-				switch (selectedItems[0]) {
-					case Sound: {
-							var castItems = selectedItems.Cast<Sound>();
-							properties.Add(CreateProperty("Sound Type", castItems.Select(x => x.StreamTypeName).Distinct().ToList()));
-							properties.Add(CreateProperty("Sound ID", castItems.Select(x => x.SourceId.ToString()).Distinct().ToList()));
-							break;
+			var displayProperties = new Dictionary<string, string>();
+			var isFirst = true;
+			foreach (var item in selectedItems) {
+				foreach (var property in item.DisplayProperties()) {
+					if (!isFirst && !displayProperties.ContainsKey(property.Key)) {
+						continue;
+					}
+					if (displayProperties.TryGetValue(property.Key, out var existingValue)) {
+						if (existingValue != property.Value) {
+							displayProperties[property.Key] = "<multiple>";
 						}
-					case Action: {
-							var castItems = selectedItems.Cast<Action>();
-							properties.Add(CreateProperty("Action Scope", castItems.Select(x => x.ActionScopeName).Distinct().ToList()));
-							properties.Add(CreateProperty("Action Type", castItems.Select(x => x.ActionTypeName).Distinct().ToList()));
-							properties.Add(CreateProperty("Ref. Object ID", castItems.Select(x => x.ObjectId.ToString()).Distinct().ToList()));
-							for (byte i = 0; i < castItems.Select(x => x.Parameters.Count).First(); i++) {
-								foreach (var key in castItems.Select(x => x.Parameters).First()) {
-									properties.Add(CreateProperty(key.Key switch {
-										0x0E => "Delay (ms)",
-										0x0F => "Fade-in Time (ms)",
-										0x10 => "Probability",
-										_ => $"Unknown (0x{key.Key:x2})"
-									}, key.Key switch {
-										0x0E => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
-										0x0F => new List<string> { BitConverter.ToUInt32(key.Value).ToString() },
-										0x10 => new List<string> { BitConverter.ToSingle(key.Value).ToString() },
-										_ => new List<string> { $"Unknown (0x{key.Key:x2})" }
-									}));
-								}
-							}
-
-							if (castItems.Select(x => x.ActionType).Distinct().First() == 0x12 || castItems.Select(x => x.ActionType).Distinct().First() == 0x19) {
-								properties.Add(CreateProperty("Switch Group ID", castItems.Select(x => x.SwitchGroupId.ToString()).Distinct().ToList()));
-								properties.Add(CreateProperty("Switch ID", castItems.Select(x => x.SwitchId.ToString()).Distinct().ToList()));
-							}
-
-							break;
-						}
-					case Event: {
-							var castItems = selectedItems.Cast<Event>();
-							if (castItems.Select(x => x.ActionNumber).First() > 0) {
-								foreach (var actionId in castItems.SelectMany(x => x.ActionIDs).Distinct()) {
-									properties.Add(CreateProperty("Action ID", new List<string> { actionId.ToString() }));
-								}
-							}
-
-							break;
-						}
+					} else if (isFirst) {
+						displayProperties[property.Key] = property.Value;
+					} else {
+						displayProperties.Remove(property.Key);
+					}
 				}
+				isFirst = false;
 			}
+
+			var properties = displayProperties.Select(property => new { Name = property.Key, Value = property.Value }).ToList();
 
 			if (selectedItems.All(x => x.NodeBaseParams != null)) {
 				var volumes = selectedItems.Select(x => { return x.NodeBaseParams.Properties1.TryGetValue(0, out var val) ? val.ToString() : ""; }).Distinct().ToList();
 				var maxInstances = selectedItems.Select(x => x.NodeBaseParams.MaxNumInstance.ToString()).Distinct().ToList();
-				properties.Add(CreateProperty("Volume", volumes));
-				properties.Add(CreateProperty("Max Instances", maxInstances));
+				properties.Add(new { Name = "Volume", Value = volumes.Count == 0 ? "" : volumes.Count > 1 ? "<multiple>" : volumes[0].ToString() });
+				properties.Add(new { Name = "Max Instances", Value = maxInstances.Count == 0 ? "" : maxInstances.Count > 1 ? "<multiple>" : maxInstances[0].ToString() });
 			}
 
 			selectedObjectDataGrid.ItemsSource = properties;

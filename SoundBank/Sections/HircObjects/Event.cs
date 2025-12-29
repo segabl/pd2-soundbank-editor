@@ -5,7 +5,6 @@ using System.Linq;
 
 namespace PD2SoundBankEditor {
 	public class Event : HircObject {
-		public uint ActionNumber;
 		public List<uint> ActionIDs = new();
 		public byte[] Unhandled;
 
@@ -34,6 +33,18 @@ namespace PD2SoundBankEditor {
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);
+		}
+
+		public override Dictionary<string, string> DisplayProperties() {
+			var properties = base.DisplayProperties();
+
+			if (ActionIDs.Count > 0) {
+				foreach (var actionId in ActionIDs) {
+					properties.Add("Action ID", actionId.ToString());
+				}
+			}
+
+			return properties;
 		}
 	}
 }

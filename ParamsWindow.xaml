@@ -11,6 +11,9 @@
     <Window.Style>
         <Style TargetType="Window" BasedOn="{StaticResource {x:Type Window}}" />
     </Window.Style>
+    <Window.DataContext>
+        <Binding RelativeSource="{RelativeSource Self}" />
+    </Window.DataContext>
     <Grid>
         <Grid Name="mainGrid" Margin="8,8,8,8">
             <Grid.ColumnDefinitions>

@@ -1,16 +1,17 @@
+using System.Collections.Generic;
 using System.IO;
 
 namespace PD2SoundBankEditor {
 	public class Sound : HircObject {
-		public uint PluginId;
-		public uint StreamType;
-		public uint SourceId;
-		public uint FileId;
-		public uint FileOffset;
-		public uint FileSize;
-		public byte SourceBits;
-		public uint UnknownSize;
-		public byte[] Unhandled;
+		public uint PluginId { get; protected set; }
+		public uint StreamType { get; protected set; }
+		public uint SourceId { get; protected set; }
+		public uint FileId { get; protected set; }
+		public uint FileOffset { get; protected set; }
+		public uint FileSize { get; protected set; }
+		public byte SourceBits { get; protected set; }
+		public uint UnknownSize { get; protected set; }
+		public byte[] Unhandled { get; protected set; }
 
 		public string StreamTypeName {
 			get => StreamType switch {
@@ -83,6 +84,15 @@ namespace PD2SoundBankEditor {
 			Data = (dataWriter.BaseStream as MemoryStream).ToArray();
 
 			base.Write(writer);
+		}
+
+		public override Dictionary<string, string> DisplayProperties() {
+			var properties = base.DisplayProperties();
+
+			properties.Add("Sound Type", StreamTypeName);
+			properties.Add("Sound ID", SourceId.ToString());
+
+			return properties;
 		}
 	}
 }

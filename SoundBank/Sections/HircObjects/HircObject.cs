@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace PD2SoundBankEditor {
@@ -73,6 +74,13 @@ namespace PD2SoundBankEditor {
 			writer.Write(Data.Length + sizeof(UInt32));
 			writer.Write(Id);
 			writer.Write(Data);
+		}
+
+		public virtual Dictionary<string, string> DisplayProperties() {
+			return new Dictionary<string, string>() {
+				{ "ID", Id.ToString() },
+				{ "Type", TypeName }
+			};
 		}
 	}
 }
