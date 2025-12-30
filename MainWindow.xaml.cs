@@ -383,9 +383,9 @@ namespace PD2SoundBankEditor {
 
 		private void OnIncreaseSoundLimitClick(object sender, RoutedEventArgs e) {
 			var changed = false;
-			foreach (ActorMixer actorMixer in soundBank.GetSection<HircSection>().GetObjects<ActorMixer>()) {
-				if (actorMixer.NodeBaseParams.MaxNumInstance > 0 && actorMixer.NodeBaseParams.MaxNumInstance < 20) {
-					actorMixer.NodeBaseParams.MaxNumInstance = 20;
+			foreach (var obj in soundBank.GetSection<HircSection>().Objects) {
+				if (obj.NodeBaseParams != null && obj.NodeBaseParams.MaxNumInstance > 0 && obj.NodeBaseParams.MaxNumInstance < 10) {
+					obj.NodeBaseParams.MaxNumInstance = 10;
 					changed = true;
 				}
 			}
@@ -403,10 +403,6 @@ namespace PD2SoundBankEditor {
 			replaceSelectedButton.IsEnabled = converterAvailable && soundDataGrid.SelectedItems.Count > 0;
 			extractSelectedButton.IsEnabled = converterAvailable && soundDataGrid.SelectedItems.Count > 0;
 			numSoundsSelectedLabel.Content = $"{soundDataGrid.SelectedItems.Count} of {soundDataGrid.Items.Count} selected";
-		}
-
-		private static object CreateProperty(string name, List<string> values) {
-			return new { Name = name, Value = values.Count > 1 ? "<multiple>" : values[0] };
 		}
 
 		private void OnObjectDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
@@ -530,7 +526,7 @@ namespace PD2SoundBankEditor {
 			try {
 				soundBank = new SoundBank(e.Argument as string);
 			} catch (Exception ex) {
-				e.Result = ex.Message;
+				e.Result = $"{ex.Message}\n\n{ex.StackTrace}";
 			}
 		}
 

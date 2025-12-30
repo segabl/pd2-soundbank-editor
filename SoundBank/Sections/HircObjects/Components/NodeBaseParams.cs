@@ -24,7 +24,14 @@ namespace PD2SoundBankEditor {
 		public byte KillNewest;
 		public byte UseVirtualBehavior;
 		public ushort MaxNumInstance;
-		public byte[] UnhandledSettings;
+		public byte IsGlobalLimit;
+		public byte BelowThresholdBehavior;
+		public byte IsMaxNumInstOverrideParent;
+		public byte IsVoicesOptOverrideParent;
+		public byte OverrideHdrEnvelope;
+		public byte OverrideAnalysis;
+		public byte NormalizeLoudness;
+		public byte EnableEnvelope;
 		public List<StateChunk> StateChunks = new();
 		public List<RTPC> RTPCs = new();
 
@@ -93,8 +100,14 @@ namespace PD2SoundBankEditor {
 			KillNewest = reader.ReadByte();
 			UseVirtualBehavior = reader.ReadByte();
 			MaxNumInstance = reader.ReadUInt16();
-
-			UnhandledSettings = reader.ReadBytes(8);
+			IsGlobalLimit = reader.ReadByte();
+			BelowThresholdBehavior = reader.ReadByte();
+			IsMaxNumInstOverrideParent = reader.ReadByte();
+			IsVoicesOptOverrideParent = reader.ReadByte();
+			OverrideHdrEnvelope = reader.ReadByte();
+			OverrideAnalysis = reader.ReadByte();
+			NormalizeLoudness = reader.ReadByte();
+			EnableEnvelope = reader.ReadByte();
 
 			var numStateChunks = reader.ReadUInt32();
 			for (var i = 0; i < numStateChunks; i++) {
@@ -158,8 +171,14 @@ namespace PD2SoundBankEditor {
 			writer.Write(KillNewest);
 			writer.Write(UseVirtualBehavior);
 			writer.Write(MaxNumInstance);
-
-			writer.Write(UnhandledSettings);
+			writer.Write(IsGlobalLimit);
+			writer.Write(BelowThresholdBehavior);
+			writer.Write(IsMaxNumInstOverrideParent);
+			writer.Write(IsVoicesOptOverrideParent);
+			writer.Write(OverrideHdrEnvelope);
+			writer.Write(OverrideAnalysis);
+			writer.Write(NormalizeLoudness);
+			writer.Write(EnableEnvelope);
 
 			writer.Write((uint)StateChunks.Count);
 			foreach (var chunk in StateChunks) {
@@ -179,12 +198,18 @@ namespace PD2SoundBankEditor {
 
 			var propList = new List<string>();
 			foreach (var prop in Properties1.Concat(Properties2)) {
-				propList.Add(prop.Key switch {
-					0x00 => $"Volume: {prop.Value}",
-					0x05 => $"Priority: {prop.Value}",
-					0x06 => $"Prio. Dist. Offset: {prop.Value}",
-					_ => $"Unknown (0x{prop.Key:x2}): {prop.Value}"
-				});
+				var propName = prop.Key switch {
+					0x00 => "Volume",
+					0x01 => "LFE",
+					0x02 => "Pitch",
+					0x03 => "LPF",
+					0x04 => "Bus Volume",
+					0x05 => "Priority",
+					0x06 => "Prio. Dist. Offset",
+					0x07 => "Loop",
+					_ => $"Unknown (0x{prop.Key:x2})"
+				};
+				propList.Add($"{propName}: {prop.Value}");
 			}
 
 			properties.Add("Properties", string.Join("\n", propList));

@@ -10,6 +10,7 @@ namespace PD2SoundBankEditor {
 				0x02 => new Sound(section, type, reader),
 				0x03 => new Action(section, type, reader),
 				0x04 => new Event(section, type, reader),
+				0x05 => new RandomSequenceContainer(section, type, reader),
 				0x07 => new ActorMixer(section, type, reader),
 				_ => new HircObject(section, type, reader)
 			};
