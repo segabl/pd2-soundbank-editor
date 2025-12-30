@@ -174,7 +174,6 @@ namespace PD2SoundBankEditor {
 
 		public Dictionary<string, string> DisplayProperties() {
 			var properties = new Dictionary<string, string>() {
-				{ "Kill Newest", (KillNewest == 1).ToString() },
 				{ "Max Instances", MaxNumInstance.ToString() }
 			};
 

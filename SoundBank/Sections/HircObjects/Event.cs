@@ -38,11 +38,7 @@ namespace PD2SoundBankEditor {
 		public override Dictionary<string, string> DisplayProperties() {
 			var properties = base.DisplayProperties();
 
-			if (ActionIDs.Count > 0) {
-				foreach (var actionId in ActionIDs) {
-					properties.Add("Action ID", actionId.ToString());
-				}
-			}
+			properties.Add("Action IDs", string.Join("\n", ActionIDs));
 
 			return properties;
 		}
