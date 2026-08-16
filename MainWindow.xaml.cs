@@ -24,9 +24,12 @@ using MessageBoxResult = AdonisUI.Controls.MessageBoxResult;
 
 namespace PD2SoundBankEditor {
 	public partial class MainWindow : AdonisWindow {
-		static readonly string CONVERTER_NAME = "wwise_ima_adpcm.exe";
-		static readonly string CONVERTER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, CONVERTER_NAME);
-		static readonly string SETTINGS_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+		static readonly string DECODER_NAME = "vgmstream-cli.exe";
+		static readonly string DECODER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "vgmstream", DECODER_NAME);
+        static readonly string ENCODER_NAME = "wwise_ima_adpcm.exe";
+        static readonly string ENCODER_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, ENCODER_NAME);
+
+        static readonly string SETTINGS_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
 		static readonly string TEMPORARY_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "tmp");
 		static readonly string LOG_PATH = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "log.txt");
 
@@ -34,8 +37,9 @@ namespace PD2SoundBankEditor {
 		private MediaPlayer mediaPlayer = new();
 		private SoundBank soundBank;
 		private Button playingButton;
-		private bool converterAvailable;
-		private CollectionViewSource embeddedSoundsViewSource = new();
+		private bool decoderAvailable;
+		private bool encoderAvailable;
+        private CollectionViewSource embeddedSoundsViewSource = new();
 		private CollectionViewSource soundbankObjectsViewSource = new();
 		private Timer autosaveNotesTimer;
 		private Regex viewFilterRegex = null;
@@ -67,12 +71,18 @@ namespace PD2SoundBankEditor {
 
 			InitializeComponent();
 
-			converterAvailable = File.Exists(CONVERTER_PATH);
-			if (!converterAvailable) {
-				MessageBox.Show($"The sound converter could not be found, you will not be able to play, convert or replace stream files! Please place {CONVERTER_NAME} in the directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+			decoderAvailable = File.Exists(DECODER_PATH);
+			if (!decoderAvailable) {
+				MessageBox.Show($"The sound decoder could not be found, you will not be able to play stream files! Please place {DECODER_NAME} and all its dependencies in the '/vgmstream/' subdirectory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
 			}
 
-			if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalHours > 1) {
+            encoderAvailable = File.Exists(ENCODER_PATH);
+            if (!encoderAvailable)
+            {
+                MessageBox.Show($"The sound encoder could not be found, you will not be able to convert or replace stream files! Please place {ENCODER_NAME} and all its dependencies in the main directory of this application!", "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            if (appSettings.checkForUpdates && (DateTime.Now - appSettings.lastUpdateCheck).TotalHours > 1) {
 				try {
 					var client = new WebClient();
 					client.Headers.Add("User-Agent:PD2SoundbankEditor");
@@ -211,7 +221,7 @@ namespace PD2SoundBankEditor {
 			var fileNameNoExt = Path.GetFileNameWithoutExtension(diag.FileName);
 			var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
 			try {
-				StartConverterProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
+				StartEncoderProcess($"-e \"{diag.FileName}\" \"{fileName}\"");
 			} catch (Exception ex) {
 				MessageBox.Show($"An error occured while trying to convert {diag.FileName}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 				return;
@@ -300,7 +310,7 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnPlayButtonClick(object sender, RoutedEventArgs e) {
-			if (!converterAvailable) {
+			if (!decoderAvailable) {
 				return;
 			}
 
@@ -319,7 +329,7 @@ namespace PD2SoundBankEditor {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
 
-			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
+			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.wem");
 			var convertedFileName = Path.ChangeExtension(fileName, "wav");
 			var debugStr = "";
 			if (!File.Exists(convertedFileName)) {
@@ -327,7 +337,7 @@ namespace PD2SoundBankEditor {
 					debugStr = "Failed at saving stream";
 					info.Save(fileName);
 					debugStr = "Failed at converting stream";
-					StartConverterProcess($"-d \"{fileName}\" \"{convertedFileName}\"");
+                    StartDecoderProcess($"-o \"{convertedFileName}\" \"{fileName}\"");
 					File.Delete(fileName);
 				} catch (Exception ex) {
 					if (!SuppressErrorsEnabled) {
@@ -400,8 +410,8 @@ namespace PD2SoundBankEditor {
 		}
 
 		private void OnSoundDataGridSelectionChanged(object sender, SelectionChangedEventArgs e) {
-			replaceSelectedButton.IsEnabled = converterAvailable && soundDataGrid.SelectedItems.Count > 0;
-			extractSelectedButton.IsEnabled = converterAvailable && soundDataGrid.SelectedItems.Count > 0;
+			replaceSelectedButton.IsEnabled = encoderAvailable && soundDataGrid.SelectedItems.Count > 0;
+			extractSelectedButton.IsEnabled = decoderAvailable && soundDataGrid.SelectedItems.Count > 0;
 			numSoundsSelectedLabel.Content = $"{soundDataGrid.SelectedItems.Count} of {soundDataGrid.Items.Count} selected";
 		}
 
@@ -451,22 +461,32 @@ namespace PD2SoundBankEditor {
 			File.WriteAllText(SETTINGS_PATH, JsonConvert.SerializeObject(appSettings));
 		}
 
-		private void StartConverterProcess(string args) {
-			var convertProcess = new Process();
-			convertProcess.StartInfo.UseShellExecute = false;
-			convertProcess.StartInfo.CreateNoWindow = true;
-			convertProcess.StartInfo.RedirectStandardOutput = true;
-			convertProcess.StartInfo.FileName = CONVERTER_PATH;
-			convertProcess.StartInfo.Arguments = args;
-			convertProcess.Start();
-			var output = convertProcess.StandardOutput.ReadToEnd();
-			convertProcess.WaitForExit();
-			if (output != "") {
-				throw new FileFormatException(output);
-			}
+		private void StartDecoderProcess(string args) {
+			var decoderProcess = new Process();
+            decoderProcess.StartInfo.UseShellExecute = false;
+            decoderProcess.StartInfo.CreateNoWindow = true;
+            decoderProcess.StartInfo.RedirectStandardOutput = true;
+            decoderProcess.StartInfo.FileName = DECODER_PATH;
+            decoderProcess.StartInfo.Arguments = args;
+            decoderProcess.Start();
+			var output = decoderProcess.StandardOutput.ReadToEnd();
+            decoderProcess.WaitForExit();
 		}
 
-		public void DoGenericProcessing(bool reportProgress, Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
+        private void StartEncoderProcess(string args)
+        {
+            var encoderProcess = new Process();
+            encoderProcess.StartInfo.UseShellExecute = false;
+            encoderProcess.StartInfo.CreateNoWindow = true;
+            encoderProcess.StartInfo.RedirectStandardOutput = true;
+            encoderProcess.StartInfo.FileName = ENCODER_PATH;
+            encoderProcess.StartInfo.Arguments = args;
+            encoderProcess.Start();
+            var output = encoderProcess.StandardOutput.ReadToEnd();
+            encoderProcess.WaitForExit();
+        }
+
+        public void DoGenericProcessing(bool reportProgress, Action<object, DoWorkEventArgs> work, Action<object, RunWorkerCompletedEventArgs> workFinished = null, object argument = null) {
 			mainGrid.IsEnabled = false;
 			BackgroundWorker worker = new() {
 				WorkerReportsProgress = reportProgress
@@ -577,8 +597,8 @@ namespace PD2SoundBankEditor {
 
 			UpdateWindowTitle();
 
-			extractAllButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
-			replaceByNamesButton.IsEnabled = converterAvailable && soundBank.StreamInfos.Count > 0;
+			extractAllButton.IsEnabled = decoderAvailable && soundBank.StreamInfos.Count > 0;
+			replaceByNamesButton.IsEnabled = encoderAvailable && soundBank.StreamInfos.Count > 0;
 			setAudioPropertiesMenuItem.IsEnabled = soundBank.GetSection<HircSection>()?.GetObjects<Sound>().Any() ?? false;
 			increaseSoundLimitMenuItem.IsEnabled = soundBank.GetSection<HircSection>()?.GetObjects<ActorMixer>().Any() ?? false;
 		}
@@ -598,11 +618,11 @@ namespace PD2SoundBankEditor {
 			var n = 0;
 			var errors = new List<string>();
 			foreach (var info in streamDescriptions) {
-				var file = Path.Join(savePath, $"{info.Id}.stream");
+				var file = Path.Join(savePath, $"{info.Id}.wem");
 				var convertedFileName = Path.ChangeExtension(file, "wav");
 				try {
 					info.Save(file);
-					StartConverterProcess($"-d \"{file}\" \"{convertedFileName}\"");
+					StartDecoderProcess($"-o \"{convertedFileName}\" \"{file}\"");
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
 				}
@@ -637,7 +657,7 @@ namespace PD2SoundBankEditor {
 				var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
 				var fileName = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".stream");
 				try {
-					StartConverterProcess($"-e \"{file}\" \"{fileName}\"");
+                    StartEncoderProcess($"-e \"{file}\" \"{fileName}\"");
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
 				}
@@ -678,7 +698,14 @@ namespace PD2SoundBankEditor {
 				var fileDir = Path.GetDirectoryName(file);
 				var fileName = Path.Combine(fileDir, fileNameNoExt + (fileExt == ".wav" ? ".stream" : ".wav"));
 				try {
-					StartConverterProcess($"-{(fileExt == ".wav" ? "e" : "d")} \"{file}\" \"{fileName}\"");
+					if (fileExt == ".wav")
+					{
+                        StartEncoderProcess($"-e \"{file}\" \"{fileName}\"");
+                    }
+					else
+					{
+                        StartDecoderProcess($"-o \"{fileName}\" \"{file}\"");
+                    }	
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
 				}

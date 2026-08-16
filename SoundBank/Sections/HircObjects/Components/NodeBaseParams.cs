@@ -2,38 +2,64 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.PortableExecutable;
 
 namespace PD2SoundBankEditor {
-	public class NodeBaseParams {
+    public class RangedProperty
+    {
+        float min;
+        float max;
+        public RangedProperty(BinaryReader reader)
+        {
+            min = reader.ReadSingle();
+            max = reader.ReadSingle();
+        }
+
+        public void Write(BinaryWriter writer)
+        {
+            writer.Write(min);
+            writer.Write(max);
+        }
+    }
+    public class NodeBaseParams {
 		public byte OverrideParentEffects;
 		public byte EffectBitMask;
 		public List<(byte, uint)> Effects = new();
+
+		public byte OverrideParentMetadata;
+		public byte MetadataBitMask;
+		public List<(byte, uint)> MetadataParams = new();
+
+		public byte OverrideAttachmentParams;
 		public uint OutputBus;
 		public uint ParentObject;
-		public byte OverrideParentPriority;
-		public byte PriorityDistanceFactorEnabled;
-		public SortedDictionary<byte, float> Properties1 = new();
-		public SortedDictionary<byte, float> Properties2 = new();
-		public byte ByVector;
-		public byte Is2DPositioningAvailable;
-		public byte Is3DPositioningAvailable;
-		public byte[] PositioningParams2D;
-		public byte[] PositioningParams3D;
-		public byte[] AuxParams;
+        public byte ParameterNodeByBitVector;
+
+        public SortedDictionary<byte, float> Properties1 = new();
+		public SortedDictionary<byte, RangedProperty> Properties2 = new();
+
+		public byte BitsPositioning;
+		public byte Bits3DPositioning;
+		public byte PositioningPathMode;
+		public uint PositioningTransitionTime;
+		public List<AutomationPathVertex> AutomationPathVertices = new();
+        public List<AutomationPlaylistItem> AutomationPlaylistItems = new();
+        public List<AutomationParam3D> AutomationParams3D = new();
+
+        public byte AuxParamsBitVector;
+		public byte[] AuxIDs;
+        public uint ReflectionsAuxBus;
+
+        public byte AdvSettingsBitVector1;
 		public byte VirtualQueueBehaviour;
-		public byte KillNewest;
-		public byte UseVirtualBehavior;
 		public ushort MaxNumInstance;
-		public byte IsGlobalLimit;
 		public byte BelowThresholdBehavior;
-		public byte IsMaxNumInstOverrideParent;
-		public byte IsVoicesOptOverrideParent;
-		public byte OverrideHdrEnvelope;
-		public byte OverrideAnalysis;
-		public byte NormalizeLoudness;
-		public byte EnableEnvelope;
-		public List<StateChunk> StateChunks = new();
-		public List<RTPC> RTPCs = new();
+        public byte AdvSettingsBitVector2;
+
+        public List<StateProperty> StateProperties = new();
+        public List<StateChunk> StateChunks = new();
+
+        public List<RTPC> RTPCs = new();
 
 		public NodeBaseParams(BinaryReader reader) {
 			OverrideParentEffects = reader.ReadByte();
@@ -44,17 +70,32 @@ namespace PD2SoundBankEditor {
 					var index = reader.ReadByte();
 					var id = reader.ReadUInt32();
 					Effects.Add((index, id));
-					reader.ReadBytes(2); // 2 zero bytes
+					reader.ReadBytes(2); // is_share_set and is_rendered, in that order
 				}
 			}
 
-			OutputBus = reader.ReadUInt32();
+            OverrideParentMetadata = reader.ReadByte();
+            var numMetadata = reader.ReadByte();
+            if (numMetadata > 0)
+            {
+                MetadataBitMask = reader.ReadByte();
+                for (var i = 0; i < numEffects; i++)
+                {
+                    var index = reader.ReadByte();
+                    var id = reader.ReadUInt32();
+                    MetadataParams.Add((index, id));
+                    reader.ReadBytes(1); // is_share_set
+                }
+            }
+
+            OverrideAttachmentParams = reader.ReadByte();
+            OutputBus = reader.ReadUInt32();
 			ParentObject = reader.ReadUInt32();
+            ParameterNodeByBitVector = reader.ReadByte();
 
-			OverrideParentPriority = reader.ReadByte();
-			PriorityDistanceFactorEnabled = reader.ReadByte();
-
-			var numProperties1 = reader.ReadByte();
+			// ParameterNodeInitialParams
+			// PropertyBundle
+            var numProperties1 = reader.ReadByte();
 			if (numProperties1 > 0) {
 				var propertyTypes = new byte[numProperties1];
 				for (var i = 0; i < numProperties1; i++) {
@@ -68,6 +109,7 @@ namespace PD2SoundBankEditor {
 				}
 			}
 
+			// RangedModifierPropertyBundle
 			var numProperties2 = reader.ReadByte();
 			if (numProperties2 > 0) {
 				var propertyTypes = new byte[numProperties2];
@@ -77,44 +119,67 @@ namespace PD2SoundBankEditor {
 
 				for (var i = 0; i < numProperties2; i++) {
 					var type = propertyTypes[i];
-					var value = reader.ReadSingle();
+					var value = new RangedProperty(reader);
 					Properties2[type] = value;
 				}
 			}
 
-			ByVector = reader.ReadByte();
-			if (ByVector > 0) {
-				Is2DPositioningAvailable = reader.ReadByte();
-				Is3DPositioningAvailable = reader.ReadByte();
-				if (Is2DPositioningAvailable > 0) {
-					PositioningParams2D = reader.ReadBytes(1);
-				}
-				if (Is3DPositioningAvailable > 0) {
-					PositioningParams3D = reader.ReadBytes(10);
-				}
+            // PositioningParams
+            BitsPositioning = reader.ReadByte();
+			if ((BitsPositioning & 1) == 1) { // has listener-relative routing (3D)
+				Bits3DPositioning = reader.ReadByte();
+				if ((BitsPositioning & (1 << 6)) != 0) // position_3d_type not Emitter
+				{
+					PositioningPathMode = reader.ReadByte();
+					PositioningTransitionTime = reader.ReadUInt32();
+
+					// automation
+					var num_vertices = reader.ReadUInt32();
+					for (var i = 0; i < num_vertices; i++)
+					{
+						AutomationPathVertices.Add(new AutomationPathVertex(reader));
+					}
+
+					var num_playlist_items = reader.ReadUInt32();
+                    for (var i = 0; i < num_playlist_items; i++)
+                    {
+                        AutomationPlaylistItems.Add(new AutomationPlaylistItem(reader));
+                    }
+                    for (var i = 0; i < num_playlist_items; i++)
+                    {
+                        AutomationParams3D.Add(new AutomationParam3D(reader));
+                    }
+                }
 			}
 
-			AuxParams = reader.ReadBytes(4);
+			// AuxParams
+			AuxParamsBitVector = reader.ReadByte();
+            if ((AuxParamsBitVector & (1 << 3)) == 1) // has_aux
+            {
+				AuxIDs = reader.ReadBytes(4 * 4);
+            }
+			ReflectionsAuxBus = reader.ReadUInt32();
 
+            // AdvSettingsParams
+            AdvSettingsBitVector1 = reader.ReadByte();
 			VirtualQueueBehaviour = reader.ReadByte();
-			KillNewest = reader.ReadByte();
-			UseVirtualBehavior = reader.ReadByte();
 			MaxNumInstance = reader.ReadUInt16();
-			IsGlobalLimit = reader.ReadByte();
 			BelowThresholdBehavior = reader.ReadByte();
-			IsMaxNumInstOverrideParent = reader.ReadByte();
-			IsVoicesOptOverrideParent = reader.ReadByte();
-			OverrideHdrEnvelope = reader.ReadByte();
-			OverrideAnalysis = reader.ReadByte();
-			NormalizeLoudness = reader.ReadByte();
-			EnableEnvelope = reader.ReadByte();
+			AdvSettingsBitVector2 = reader.ReadByte();
 
-			var numStateChunks = reader.ReadUInt32();
-			for (var i = 0; i < numStateChunks; i++) {
-				StateChunks.Add(new StateChunk(reader));
+			// ParameterNodeStateChunk
+            var numStateProps = reader.ReadByte();
+			for (var i = 0; i < numStateProps; i++) {
+				StateProperties.Add(new StateProperty(reader));
 			}
+            var numStateChunks = reader.ReadByte();
+            for (var i = 0; i < numStateChunks; i++)
+            {
+                StateChunks.Add(new StateChunk(reader));
+            }
 
-			var numRTPC = reader.ReadUInt16();
+			// Initial RTPC
+            var numRTPC = reader.ReadUInt16();
 			for (var i = 0; i < numRTPC; i++) {
 				RTPCs.Add(new RTPC(reader));
 			}
@@ -132,15 +197,29 @@ namespace PD2SoundBankEditor {
 				}
 			}
 
-			writer.Write(OutputBus);
+            writer.Write(OverrideParentMetadata);
+            writer.Write((byte)MetadataParams.Count);
+            if (MetadataParams.Count > 0)
+            {
+                writer.Write(MetadataBitMask);
+                foreach (var (index, id) in MetadataParams)
+                {
+                    writer.Write(index);
+                    writer.Write(id);
+                    writer.Write((byte)0);
+                }
+            }
+
+			writer.Write(OverrideAttachmentParams);
+            writer.Write(OutputBus);
 			writer.Write(ParentObject);
-			writer.Write(OverrideParentPriority);
-			writer.Write(PriorityDistanceFactorEnabled);
+			writer.Write(ParameterNodeByBitVector);
+
+			// ParameterNodeInitialParams
 			writer.Write((byte)Properties1.Count);
 			foreach (var (type, _) in Properties1) {
 				writer.Write(type);
 			}
-
 			foreach (var (_, value) in Properties1) {
 				writer.Write(value);
 			}
@@ -149,38 +228,56 @@ namespace PD2SoundBankEditor {
 			foreach (var (type, _) in Properties2) {
 				writer.Write(type);
 			}
-
-			foreach (var (_, value) in Properties2) {
-				writer.Write(value);
+			foreach (var (_, ranged_property) in Properties2) {
+				ranged_property.Write(writer);
 			}
 
-			writer.Write(ByVector);
-			if (ByVector > 0) {
-				writer.Write(Is2DPositioningAvailable);
-				writer.Write(Is3DPositioningAvailable);
-				if (Is2DPositioningAvailable > 0) {
-					writer.Write(PositioningParams2D);
-				}
-				if (Is3DPositioningAvailable > 0) {
-					writer.Write(PositioningParams3D);
+			// PositioningParams
+			writer.Write(BitsPositioning);
+			if (BitsPositioning > 0)
+			{
+				writer.Write(Bits3DPositioning);
+				if ((BitsPositioning & (1 << 6)) != 0)
+				{
+					writer.Write(PositioningPathMode);
+					writer.Write(PositioningTransitionTime);
+					writer.Write((uint)AutomationPathVertices.Count);
+					foreach (var path_vertex in AutomationPathVertices)
+					{
+						path_vertex.Write(writer);
+					}
+                    writer.Write((uint)AutomationPlaylistItems.Count);
+                    foreach (var playlist_item in AutomationPlaylistItems)
+					{
+						playlist_item.Write(writer);
+					}
+                    foreach (var automation_param in AutomationParams3D)
+					{
+						automation_param.Write(writer);
+					}
 				}
 			}
 
-			writer.Write(AuxParams);
+			writer.Write(AuxParamsBitVector);
+            if ((AuxParamsBitVector & (1 << 3)) == 1) // has_aux
+            {
+                writer.Write(AuxIDs);
+            }
+            writer.Write(ReflectionsAuxBus);
+
+            writer.Write(AdvSettingsBitVector1);
 			writer.Write(VirtualQueueBehaviour);
-			writer.Write(KillNewest);
-			writer.Write(UseVirtualBehavior);
 			writer.Write(MaxNumInstance);
-			writer.Write(IsGlobalLimit);
 			writer.Write(BelowThresholdBehavior);
-			writer.Write(IsMaxNumInstOverrideParent);
-			writer.Write(IsVoicesOptOverrideParent);
-			writer.Write(OverrideHdrEnvelope);
-			writer.Write(OverrideAnalysis);
-			writer.Write(NormalizeLoudness);
-			writer.Write(EnableEnvelope);
+            writer.Write(AdvSettingsBitVector2);
 
-			writer.Write((uint)StateChunks.Count);
+            writer.Write((byte)StateProperties.Count);
+            foreach (var property in StateProperties)
+            {
+                property.Write(writer);
+            }
+
+            writer.Write((byte)StateChunks.Count);
 			foreach (var chunk in StateChunks) {
 				chunk.Write(writer);
 			}
@@ -197,20 +294,22 @@ namespace PD2SoundBankEditor {
 			};
 
 			var propList = new List<string>();
-			foreach (var prop in Properties1.Concat(Properties2)) {
+			foreach (var prop in Properties1) {
 				var propName = prop.Key switch {
 					0x00 => "Volume",
 					0x01 => "LFE",
 					0x02 => "Pitch",
 					0x03 => "LPF",
-					0x04 => "Bus Volume",
-					0x05 => "Priority",
-					0x06 => "Prio. Dist. Offset",
-					0x07 => "Loop",
+					0x04 => "HPF",
+					0x05 => "Bus Volume",
+					0x06 => "Makeup Gain",
+					0x07 => "Priority",
 					_ => $"Unknown (0x{prop.Key:x2})"
 				};
 				propList.Add($"{propName}: {prop.Value}");
 			}
+
+			// add rangedproperties
 
 			properties.Add("Properties", string.Join("\n", propList));
 

@@ -6,7 +6,7 @@ namespace PD2SoundBankEditor {
 	public class HircObject {
 		public static HircObject Read(HircSection section, BinaryReader reader) {
 			var type = reader.ReadByte();
-			return type switch {
+            return type switch {
 				0x02 => new Sound(section, type, reader),
 				0x03 => new Action(section, type, reader),
 				0x04 => new Event(section, type, reader),
@@ -26,6 +26,7 @@ namespace PD2SoundBankEditor {
 
 		public string TypeName {
 			get => Type switch {
+				0x01 => "State",
 				0x02 => "Sound",
 				0x03 => "Action",
 				0x04 => "Event",
@@ -40,12 +41,15 @@ namespace PD2SoundBankEditor {
 				0x0D => "Music Playlist Container",
 				0x0E => "Attenuation",
 				0x0F => "Dialogue Event",
-				0x10 => "Motion Bus",
-				0x11 => "Motion FX",
-				0x12 => "Effect",
-				0x13 => "FxCustom",
-				0x14 => "Auxiliary Bus",
-				_ => $"Unknown (0x{Type:x2})"
+				0x10 => "FX Share Set",
+				0x11 => "FX Custom",
+				0x12 => "Auxiliary Bus",
+				0x13 => "LFO",
+				0x14 => "Envelope",
+                0x15 => "AudioDevice",
+                0x16 => "TimeMod",
+                0x17 => "SidechainMix",
+                _ => $"Unknown (0x{Type:x2})"
 			};
 		}
 
@@ -57,7 +61,7 @@ namespace PD2SoundBankEditor {
 			Type = type;
 			Size = reader.ReadUInt32();
 			Id = reader.ReadUInt32();
-			StringId = type switch // Only try to dehash names for reversable types
+            StringId = type switch // Only try to dehash names for reversable types
 			{
 				0x04 => HashList.DehashId(Id),
 				0x08 => HashList.DehashId(Id),

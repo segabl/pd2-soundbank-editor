@@ -16,7 +16,7 @@ namespace PD2SoundBankEditor {
 		public byte TransitionMode;
 		public byte RandomMode;
 		public byte Mode;
-		public byte[] UnhandledSettings;
+		public byte UnhandledSettings;
 		public List<uint> Children = new();
 		public List<Tuple<uint, int>> Playlist = new();
 		public byte[] Unhandled;
@@ -41,7 +41,7 @@ namespace PD2SoundBankEditor {
 			RandomMode = reader.ReadByte();
 			Mode = reader.ReadByte();
 
-			UnhandledSettings = reader.ReadBytes(5);
+			UnhandledSettings = reader.ReadByte();
 
 			var numChildren = reader.ReadUInt32();
 			var bytesLeft = amount + dataOffset - (int)reader.BaseStream.Position;
