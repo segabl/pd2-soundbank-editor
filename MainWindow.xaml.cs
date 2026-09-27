@@ -692,19 +692,27 @@ namespace PD2SoundBankEditor {
 			var files = (string[])e.Argument;
 			var n = 0;
 			var errors = new List<string>();
-			foreach (var file in files) {
-				var fileExt = Path.GetExtension(file);
-				var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
-				var fileDir = Path.GetDirectoryName(file);
-				var fileName = Path.Combine(fileDir, fileNameNoExt + (fileExt == ".wav" ? ".stream" : ".wav"));
+			foreach (var inFilePath in files) {
+				var fileExt = Path.GetExtension(inFilePath);
+				var fileNameNoExt = Path.GetFileNameWithoutExtension(inFilePath);
+				var fileDir = Path.GetDirectoryName(inFilePath);
+				var outFilePath = Path.Combine(fileDir, fileNameNoExt + (fileExt == ".wav" ? ".stream" : ".wav"));
 				try {
 					if (fileExt == ".wav")
 					{
-                        StartEncoderProcess($"-e \"{file}\" \"{fileName}\"");
+                        StartEncoderProcess($"-e \"{inFilePath}\" \"{outFilePath}\"");
                     }
-					else
+					else // .stream
 					{
-                        StartDecoderProcess($"-o \"{fileName}\" \"{file}\"");
+                        if (!Directory.Exists(TEMPORARY_PATH))
+                        {
+                            Directory.CreateDirectory(TEMPORARY_PATH);
+                        }
+
+						var tmpInFilePath = Path.Combine(TEMPORARY_PATH, fileNameNoExt + ".wem");
+                        File.Copy(inFilePath, tmpInFilePath);
+                        StartDecoderProcess($"-o \"{outFilePath}\" \"{tmpInFilePath}\"");
+						File.Delete(tmpInFilePath);
                     }	
 				} catch (Exception ex) {
 					errors.Add(ex.Message);
