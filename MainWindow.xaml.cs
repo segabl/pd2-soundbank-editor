@@ -329,7 +329,7 @@ namespace PD2SoundBankEditor {
 				Directory.CreateDirectory(TEMPORARY_PATH);
 			}
 
-			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.wem");
+			var fileName = Path.Combine(TEMPORARY_PATH, $"{info.Id}.stream");
 			var convertedFileName = Path.ChangeExtension(fileName, "wav");
 			var debugStr = "";
 			if (!File.Exists(convertedFileName)) {
@@ -618,7 +618,7 @@ namespace PD2SoundBankEditor {
 			var n = 0;
 			var errors = new List<string>();
 			foreach (var info in streamDescriptions) {
-				var file = Path.Join(savePath, $"{info.Id}.wem");
+				var file = Path.Join(savePath, $"{info.Id}.stream");
 				var convertedFileName = Path.ChangeExtension(file, "wav");
 				try {
 					info.Save(file);
